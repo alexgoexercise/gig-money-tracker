@@ -22,7 +22,7 @@ A desktop application built with Electron and SQLite to help freelancers track t
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
+git clone https://github.com/alexgoexercise/gig-money-tracker.git
 cd gig-money-tracker
 ```
 
