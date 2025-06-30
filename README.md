@@ -1,19 +1,19 @@
 # 💰 Gig Money Tracker
 
-A desktop application built with Electron and SQLite to help freelancers track their income and expenses.
+A desktop application built with Electron and SQLite to help gigging musicians to track their income (eg. when is the gig and whether the payment has been received or not) and better organise their finance.
 
 ## Features
 
-- **Gig Management**: Add, edit, and delete freelance gigs
+- **Gig Management**: Add, edit, and delete  gigs
 - **Income Tracking**: Track earnings with status updates (pending, completed, cancelled)
 - **Expense Tracking**: Record expenses associated with gigs
 - **Financial Analytics**: View total earnings, expenses, and net income
 - **Modern UI**: Clean, responsive interface with real-time updates
-- **Local Storage**: Data stored locally using SQLite database
+- **Local Storage**: Data stored locally using SQLite database (no need to connect to the internet)
 
 ## Tech Stack
 
-- **Frontend**: HTML5, CSS3, JavaScript (ES6+)
+- **Frontend**: HTML5, CSS3, JavaScript (ES6+), React
 - **Backend**: Node.js with better-sqlite3
 - **Desktop Framework**: Electron
 - **Database**: SQLite
@@ -68,13 +68,23 @@ npm run dev
 
 ```
 gig-money-tracker/
-├── main.js          # Main Electron process
-├── preload.js       # Preload script for secure IPC
-├── database.js      # Database management module
-├── index.html       # Main application UI
-├── renderer.js      # Frontend logic
-├── package.json     # Project configuration
-└── README.md        # Project documentation
+├── main.cjs            # Main Electron process
+├── preload.cjs         # Preload script for secure IPC
+├── database.cjs        # Database management module
+├── package.json        # Project configuration
+├── package-lock.json   # Dependency lock file
+├── webpack.config.cjs  # Webpack configuration
+├── README.md           # Project documentation
+└── src/
+    ├── index.html          # Main HTML file
+    ├── renderer.js         # Entry point for renderer process
+    ├── App.jsx             # Root React component
+    ├── styles.css          # Global styles
+    └── components/
+        ├── GigForm.jsx         # Form for adding/editing gigs
+        ├── GigList.jsx         # List of gigs
+        ├── Notification.jsx    # Notification component
+        └── StatsGrid.jsx       # Financial stats grid
 ```
 
 ## Usage
