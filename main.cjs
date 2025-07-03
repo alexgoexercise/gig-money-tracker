@@ -37,8 +37,24 @@ ipcMain.handle('db-add-gig', async (event, gig) => {
   return dbManager.addGig(gig)
 })
 
+ipcMain.handle('db-add-regular-gig', async (event, gig, startDate, endDate, dayOfWeek) => {
+  return dbManager.addRegularGig(gig, startDate, endDate, dayOfWeek)
+})
+
+ipcMain.handle('db-get-gigs-by-type', async (event, gigType) => {
+  return dbManager.getGigsByType(gigType)
+})
+
+ipcMain.handle('db-get-weekly-gigs-for-regular-gig', async (event, parentGigId) => {
+  return dbManager.getWeeklyGigsForRegularGig(parentGigId)
+})
+
 ipcMain.handle('db-update-gig', async (event, id, gig) => {
   return dbManager.updateGig(id, gig)
+})
+
+ipcMain.handle('db-update-weekly-gig', async (event, id, gig) => {
+  return dbManager.updateWeeklyGig(id, gig)
 })
 
 ipcMain.handle('db-delete-gig', async (event, id) => {
@@ -76,6 +92,18 @@ ipcMain.handle('db-get-net-income', async () => {
 ipcMain.handle('db-get-all-gig-places', async () => {
   return dbManager.getAllGigPlaces();
 })
+
+ipcMain.handle('db-get-occurrence-override', async (event, gigId, date) => {
+  return dbManager.getOccurrenceOverride(gigId, date);
+});
+
+ipcMain.handle('db-set-occurrence-override', async (event, gigId, date, status, amount, notes) => {
+  return dbManager.setOccurrenceOverride(gigId, date, status, amount, notes);
+});
+
+ipcMain.handle('db-get-all-occurrence-overrides-for-gig', async (event, gigId) => {
+  return dbManager.getAllOccurrenceOverridesForGig(gigId);
+});
 
 app.whenReady().then(() => {
   initDatabase()

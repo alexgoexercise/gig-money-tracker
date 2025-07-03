@@ -30,9 +30,18 @@ class DatabaseManager {
         date TEXT NOT NULL,
         status TEXT DEFAULT 'pending',
         gig_place_id INTEGER,
+        gig_type TEXT DEFAULT 'sub_gig',
+        is_recurring BOOLEAN DEFAULT 0,
+        recurring_pattern TEXT,
+        recurring_end_date TEXT,
+        parent_gig_id INTEGER,
+        full_time_start_date TEXT,
+        full_time_end_date TEXT,
+        full_time_days TEXT, -- comma-separated weekdays (0=Sun,1=Mon,...)
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (gig_place_id) REFERENCES gig_places (id)
+        FOREIGN KEY (gig_place_id) REFERENCES gig_places (id),
+        FOREIGN KEY (parent_gig_id) REFERENCES gigs (id)
       )
     `);
 
@@ -49,6 +58,19 @@ class DatabaseManager {
       )
     `);
 
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS gig_occurrences (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        gig_id INTEGER NOT NULL,
+        date TEXT NOT NULL,
+        status TEXT DEFAULT 'pending',
+        amount REAL,
+        notes TEXT,
+        UNIQUE(gig_id, date),
+        FOREIGN KEY (gig_id) REFERENCES gigs (id)
+      )
+    `);
+
     console.log('Database initialized successfully');
   }
 
@@ -57,16 +79,79 @@ class DatabaseManager {
     // gig.gig_place can be a name; get or create the place and use its id
     const gigPlaceId = this.getOrCreateGigPlace(gig.gig_place);
     const stmt = this.db.prepare(`
-      INSERT INTO gigs (title, description, amount, date, status, gig_place_id)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO gigs (title, description, amount, date, status, gig_place_id, gig_type, is_recurring, recurring_pattern, recurring_end_date, parent_gig_id, full_time_start_date, full_time_end_date, full_time_days)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
-    return stmt.run(gig.title, gig.description, gig.amount, gig.date, gig.status || 'pending', gigPlaceId);
+    return stmt.run(
+      gig.title, 
+      gig.description, 
+      gig.amount, 
+      gig.date, 
+      gig.status || 'pending', 
+      gigPlaceId,
+      gig.gig_type || 'sub_gig',
+      gig.is_recurring ? 1 : 0,
+      gig.recurring_pattern || null,
+      gig.recurring_end_date || null,
+      null, // parent_gig_id always null for all gig types
+      gig.full_time_start_date || null,
+      gig.full_time_end_date || null,
+      gig.full_time_days || null
+    );
+  }
+
+  addRegularGig(gig, startDate, endDate, dayOfWeek) {
+    // Only create the parent regular gig
+    const parentGigData = {
+      ...gig,
+      date: startDate,
+      gig_type: 'regular_gig',
+      is_recurring: true,
+      recurring_pattern: `weekly_${dayOfWeek}`,
+      recurring_end_date: endDate,
+      parent_gig_id: null
+    };
+    const parentResult = this.addGig(parentGigData);
+    const parentId = parentResult.lastInsertRowid;
+    return { parentId };
   }
 
   getAllGigs() {
-    // Join with gig_places to get the place name
-    const stmt = this.db.prepare('SELECT gigs.*, gig_places.name as gig_place FROM gigs LEFT JOIN gig_places ON gigs.gig_place_id = gig_places.id ORDER BY date DESC');
+    const stmt = this.db.prepare(`
+      SELECT gigs.*, gig_places.name as gig_place 
+      FROM gigs 
+      LEFT JOIN gig_places ON gigs.gig_place_id = gig_places.id 
+      WHERE (
+        (gig_type = 'sub_gig' AND parent_gig_id IS NULL)
+        OR (gig_type = 'regular_gig' AND parent_gig_id IS NULL)
+        OR (gig_type = 'full_time_gig' AND parent_gig_id IS NULL)
+      )
+      ORDER BY date DESC
+    `);
     return stmt.all();
+  }
+
+  getGigsByType(gigType) {
+    if (gigType === 'regular_gig') {
+      // For regular gigs, only show the parent gigs
+      const stmt = this.db.prepare(`
+        SELECT gigs.*, gig_places.name as gig_place 
+        FROM gigs 
+        LEFT JOIN gig_places ON gigs.gig_place_id = gig_places.id 
+        WHERE gig_type = 'regular_gig' AND parent_gig_id IS NULL
+        ORDER BY date DESC
+      `);
+      return stmt.all();
+    } else {
+      const stmt = this.db.prepare(`
+        SELECT gigs.*, gig_places.name as gig_place 
+        FROM gigs 
+        LEFT JOIN gig_places ON gigs.gig_place_id = gig_places.id 
+        WHERE gig_type = ?
+        ORDER BY date DESC
+      `);
+      return stmt.all(gigType);
+    }
   }
 
   getGigById(id) {
@@ -78,13 +163,28 @@ class DatabaseManager {
     const gigPlaceId = this.getOrCreateGigPlace(gig.gig_place);
     const stmt = this.db.prepare(`
       UPDATE gigs 
-      SET title = ?, description = ?, amount = ?, date = ?, status = ?, gig_place_id = ?, updated_at = CURRENT_TIMESTAMP
+      SET title = ?, description = ?, amount = ?, date = ?, status = ?, gig_place_id = ?, gig_type = ?, is_recurring = ?, recurring_pattern = ?, recurring_end_date = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `);
-    return stmt.run(gig.title, gig.description, gig.amount, gig.date, gig.status, gigPlaceId, id);
+    return stmt.run(
+      gig.title, 
+      gig.description, 
+      gig.amount, 
+      gig.date, 
+      gig.status, 
+      gigPlaceId, 
+      gig.gig_type || 'sub_gig',
+      gig.is_recurring ? 1 : 0,
+      gig.recurring_pattern || null,
+      gig.recurring_end_date || null,
+      id
+    );
   }
 
   deleteGig(id) {
+    // Delete all occurrences for this gig first
+    this.db.prepare('DELETE FROM gig_occurrences WHERE gig_id = ?').run(id);
+    // Only then delete the gig itself
     const stmt = this.db.prepare('DELETE FROM gigs WHERE id = ?');
     return stmt.run(id);
   }
@@ -141,6 +241,27 @@ class DatabaseManager {
   getAllGigPlaces() {
     const stmt = this.db.prepare('SELECT * FROM gig_places ORDER BY name ASC');
     return stmt.all();
+  }
+
+  // Occurrence overrides
+  getOccurrenceOverride(gigId, date) {
+    const stmt = this.db.prepare('SELECT * FROM gig_occurrences WHERE gig_id = ? AND date = ?');
+    return stmt.get(gigId, date);
+  }
+
+  setOccurrenceOverride(gigId, date, status, amount, notes) {
+    // Insert or update
+    const stmt = this.db.prepare(`
+      INSERT INTO gig_occurrences (gig_id, date, status, amount, notes)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(gig_id, date) DO UPDATE SET status=excluded.status, amount=excluded.amount, notes=excluded.notes
+    `);
+    return stmt.run(gigId, date, status, amount, notes);
+  }
+
+  getAllOccurrenceOverridesForGig(gigId) {
+    const stmt = this.db.prepare('SELECT * FROM gig_occurrences WHERE gig_id = ?');
+    return stmt.all(gigId);
   }
 
   close() {
