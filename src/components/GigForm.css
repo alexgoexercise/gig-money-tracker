@@ -1,0 +1,113 @@
+/* GigForm styles - Modern Futuristic Design */
+.gigform-weekly-schedule {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-lg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  position: relative;
+  overflow: hidden;
+}
+
+.gigform-weekly-schedule::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(180deg, var(--success), var(--accent));
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.gigform-weekly-title {
+  margin-top: 0;
+  margin-bottom: var(--spacing-lg);
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 1.125rem;
+}
+
+.gigform-weekly-desc {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-top: var(--spacing-sm);
+  line-height: 1.5;
+}
+
+.gigform-fulltime-schedule {
+  background: rgba(99, 102, 241, 0.05);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-lg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  position: relative;
+  overflow: hidden;
+}
+
+.gigform-fulltime-schedule::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(180deg, var(--primary), var(--secondary));
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.gigform-fulltime-title {
+  margin-top: 0;
+  margin-bottom: var(--spacing-lg);
+  color: var(--primary);
+  font-weight: 600;
+  font-size: 1.125rem;
+}
+
+.gigform-fulltime-desc {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-top: var(--spacing-sm);
+  line-height: 1.5;
+}
+
+.gigform-routine-days {
+  display: flex;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+  margin-top: var(--spacing-md);
+}
+
+.gigform-checkbox-label {
+  font-weight: 400;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  cursor: pointer;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  transition: all 0.3s ease;
+}
+
+.gigform-checkbox-label:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+}
+
+.gigform-checkbox-label input[type="checkbox"] {
+  width: auto;
+  margin-right: var(--spacing-xs);
+  accent-color: var(--primary);
+}
+
+.gigform-btn-row {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-lg);
+} 

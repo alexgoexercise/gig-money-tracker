@@ -1,0 +1,314 @@
+/* GigList styles - Modern Futuristic Design */
+.giglist-tag {
+  cursor: pointer;
+  padding: var(--spacing-lg);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: var(--glass-shadow);
+}
+
+.giglist-tag::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(180deg, var(--primary), var(--accent));
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.giglist-tag:hover {
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-3px);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+.giglist-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--spacing-sm);
+  gap: var(--spacing-md);
+}
+
+.giglist-title {
+  color: var(--text-primary);
+  font-weight: 700;
+  font-size: 1.25rem;
+  letter-spacing: -0.5px;
+  margin-bottom: var(--spacing-xs);
+  background: linear-gradient(135deg, var(--text-primary), var(--primary-light));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.giglist-type {
+  font-size: 0.75rem;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  color: var(--text-primary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-right: var(--spacing-xs);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2);
+}
+
+.giglist-delete-btn-container {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.giglist-delete-btn {
+  background: none;
+  border: 1.5px solid var(--error);
+  color: var(--error);
+  font-weight: 600;
+  font-size: 0.9rem;
+  border-radius: var(--radius-sm);
+  padding: var(--spacing-xs) var(--spacing-md);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: none;
+  outline: none;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.giglist-delete-btn:hover, .giglist-delete-btn:focus {
+  background: var(--error);
+  color: #fff;
+  border-color: var(--error);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+  transform: translateY(-1px);
+}
+
+.giglist-delete-btn svg, .giglist-delete-btn .icon {
+  font-size: 1.1em;
+  margin-right: 2px;
+}
+
+.giglist-description {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  font-weight: 400;
+  margin: var(--spacing-xs) 0 var(--spacing-sm) 0;
+  line-height: 1.6;
+}
+
+.giglist-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: var(--spacing-sm);
+}
+
+.giglist-amount {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--success);
+  background: linear-gradient(135deg, var(--success), var(--accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.giglist-meta {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-top: var(--spacing-xs);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+}
+
+.giglist-view-btn {
+  margin-top: var(--spacing-sm);
+  font-size: 0.9rem;
+  color: var(--primary);
+  background: none;
+  border: 1.5px solid var(--primary);
+  border-radius: var(--radius-sm);
+  padding: var(--spacing-xs) var(--spacing-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+  display: inline-block;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.giglist-view-btn:hover, .giglist-view-btn:focus {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  transform: translateY(-1px);
+}
+
+.gig-card {
+  background: var(--glass-bg);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-md);
+  border: 1px solid var(--glass-border);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--glass-shadow);
+}
+
+.gig-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(180deg, var(--primary), var(--accent));
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.gig-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-3px);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+.giglist-link, .clickable {
+  /* Remove old clickable link styles for details */
+  color: inherit;
+  background: none;
+  text-decoration: none;
+  cursor: default;
+  pointer-events: none;
+}
+
+.giglist-view-btn-main {
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  color: #fff;
+  border: none;
+  font-weight: 700;
+  font-size: 1rem;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-md) var(--spacing-xl);
+  border-radius: var(--radius-md);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.giglist-view-btn-main:hover, .giglist-view-btn-main:focus {
+  background: linear-gradient(135deg, var(--accent), var(--primary));
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(6, 182, 212, 0.4);
+  transform: translateY(-1px);
+}
+
+/* --- BADGES --- */
+.giglist-badges {
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: center;
+  margin-bottom: var(--spacing-xs);
+}
+.giglist-type-badge {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 2px 14px;
+  letter-spacing: 0.5px;
+  user-select: none;
+  pointer-events: none;
+  border: none;
+  box-shadow: none;
+}
+.giglist-status-badge {
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 2px 12px;
+  user-select: none;
+  pointer-events: none;
+  border: none;
+  box-shadow: none;
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+}
+.giglist-status-pending {
+  background: #2d3748;
+  color: #fbbf24;
+}
+.giglist-status-completed {
+  background: #1e293b;
+  color: #10b981;
+}
+.giglist-status-cancelled {
+  background: #1e293b;
+  color: #ef4444;
+}
+
+/* --- ACTIONS --- */
+.giglist-actions {
+  display: flex;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-lg);
+  align-items: center;
+  flex-wrap: wrap;
+}
+.giglist-action-btn {
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 1rem;
+  padding: var(--spacing-sm) var(--spacing-xl);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s, transform 0.2s;
+  outline: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+  margin-bottom: var(--spacing-xs);
+}
+.giglist-view-btn-main {
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  color: #fff;
+}
+.giglist-view-btn-main:hover, .giglist-view-btn-main:focus {
+  background: linear-gradient(135deg, var(--accent), var(--primary));
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(6, 182, 212, 0.4);
+  transform: translateY(-1px);
+}
+.giglist-delete-btn {
+  background: var(--error);
+  color: #fff;
+}
+.giglist-delete-btn:hover, .giglist-delete-btn:focus {
+  background: #b91c1c;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+  transform: translateY(-1px);
+}
+
+/* Remove old .giglist-type and .status styles if needed */
+.giglist-type { display: none !important; }
+.status { display: none !important; } 

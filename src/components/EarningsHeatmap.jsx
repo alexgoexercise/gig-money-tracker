@@ -1,12 +1,22 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
+import './EarningsHeatmap.css';
 
-// Helper to get all days in the past year
-function getPastYearDays() {
+// Helper to get all days in a given year (or past year if not specified)
+function getYearDays(year) {
   const days = [];
   const today = new Date();
-  const start = new Date(today);
-  start.setFullYear(today.getFullYear() - 1);
-  for (let d = new Date(start); d <= today; d.setDate(d.getDate() + 1)) {
+  let start, end;
+  if (year === today.getFullYear()) {
+    // From last year today to today
+    start = new Date(today);
+    start.setFullYear(today.getFullYear() - 1);
+    end = today;
+  } else {
+    // Full calendar year
+    start = new Date(year, 0, 1);
+    end = new Date(year, 11, 31);
+  }
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
     days.push(new Date(d));
   }
   return days;
@@ -17,6 +27,9 @@ function formatDate(date) {
   return date.toISOString().split('T')[0];
 }
 
+// Add yellow for pending
+const PENDING_COLOR = '#fff7b2'; // light yellow
+
 // Modern blue/teal color scale (5 levels)
 const COLORS = [
   '#e8f1fa', // 0
@@ -26,7 +39,8 @@ const COLORS = [
   '#1565c0'  // 4 (max)
 ];
 
-function getColor(amount, thresholds) {
+function getColor(amount, thresholds, status) {
+  if (status === 'pending') return PENDING_COLOR;
   if (amount === 0) return COLORS[0];
   if (amount <= thresholds[0]) return COLORS[1];
   if (amount <= thresholds[1]) return COLORS[2];
@@ -43,24 +57,31 @@ function isDateInRange(date, start, end) {
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const WEEKDAY_LABELS = ['Mon', 'Wed', 'Fri'];
 
-const BLOCK_SIZE = 16;
-const BLOCK_GAP = 2;
+const BLOCK_SIZE = 12;
+const BLOCK_GAP = 3;
+
+const WEEKDAY_LABEL_WIDTH = 32; // px, match CSS
 
 const EarningsHeatmap = ({ earningsByDay, selectedDate, selectedRange, onSelectDate, onSelectRange }) => {
-  // Map: yyyy-mm-dd -> amount
+  // Map: yyyy-mm-dd -> { amount, status }
   const earningsMap = useMemo(() => {
     const map = {};
-    (earningsByDay || []).forEach(({ date, amount }) => {
-      map[date] = amount;
+    (earningsByDay || []).forEach(({ date, amount, status }) => {
+      map[date] = { amount, status };
     });
     return map;
   }, [earningsByDay]);
 
-  // Get all days in the past year
-  const days = useMemo(() => getPastYearDays(), []);
+  // Add year selection state
+  const currentYear = new Date().getFullYear();
+  const [selectedYear, setSelectedYear] = useState(currentYear);
+
+  // Get all days for the selected year
+  const days = useMemo(() => getYearDays(selectedYear), [selectedYear]);
 
   // Find max amount for scaling
-  const max = Math.max(0, ...Object.values(earningsMap));
+  // const max = Math.max(0, ...Object.values(earningsMap));
+  const max = 400;
   // 4 thresholds for 5 levels
   const thresholds = [
     max * 0.25,
@@ -104,6 +125,9 @@ const EarningsHeatmap = ({ earningsByDay, selectedDate, selectedRange, onSelectD
     colIndex++;
   });
 
+  // Calculate grid width for hiding overflowing month labels
+  const gridWidth = weeks.length * (BLOCK_SIZE + BLOCK_GAP) - BLOCK_GAP;
+
   // Selection logic
   const isSelected = (date) => {
     if (selectedRange && selectedRange[0] && selectedRange[1]) {
@@ -139,78 +163,83 @@ const EarningsHeatmap = ({ earningsByDay, selectedDate, selectedRange, onSelectD
   // Only show Mon, Wed, Fri labels (GitHub style)
   const weekdayLabelIndexes = [1, 3, 5];
 
+  // Generate year options (last 5 years)
+  const yearOptions = Array.from({ length: 5 }, (_, i) => currentYear - i);
+
   return (
-    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '20px 0' }}>
-      <div className="heatmap-scroll" style={{ position: 'relative', height: 7 * (BLOCK_SIZE + BLOCK_GAP) + 30 }}>
-        {/* Month labels absolutely positioned */}
-        {monthLabelPositions.map(({ label, left }, i) => (
-          <div
-            key={i}
-            style={{
-              position: 'absolute',
-              left: 16 + left + BLOCK_SIZE + BLOCK_GAP, // 16px offset for weekday labels
-              top: 0,
-              fontSize: 13,
-              color: '#888',
-              fontWeight: 500,
-              width: 40,
-              textAlign: 'left',
-              pointerEvents: 'none',
-            }}
-          >
-            {label}
-          </div>
-        ))}
-        <div style={{ display: 'flex', flexDirection: 'row', position: 'absolute', top: 20, left: 0 }}>
+    <div className="heatmap-container">
+      <div className="heatmap-header" style={{ width: '100%', maxWidth: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h2 className="heatmap-title" style={{ margin: 0 }}>Earnings Heatmap (Past Year)</h2>
+        <select
+          value={selectedYear}
+          onChange={e => setSelectedYear(Number(e.target.value))}
+          style={{ fontSize: '1rem', padding: '4px 8px', borderRadius: 6, border: '1px solid #ccc', background: '#222', color: '#fff' }}
+        >
+          {yearOptions.map(y => (
+            <option key={y} value={y}>{y}</option>
+          ))}
+        </select>
+      </div>
+      <div className="heatmap-card">
+        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', width: '100%' }}>
           {/* Weekday labels */}
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', marginRight: 6, height: 112 }}>
+          <div className="heatmap-week-labels">
             {Array.from({ length: 7 }).map((_, i) => (
-              weekdayLabelIndexes.includes(i)
-                ? <div key={i} style={{ height: 16, fontSize: 13, color: '#888', fontWeight: 500 }}>{WEEKDAYS[i]}</div>
-                : <div key={i} style={{ height: 16 }} />
+              <div
+                key={i}
+                className="heatmap-week-label"
+              >{weekdayLabelIndexes.includes(i) ? WEEKDAYS[i] : ''}</div>
             ))}
           </div>
-          {/* Heatmap grid */}
-          <div style={{ display: 'flex', flexDirection: 'row', gap: BLOCK_GAP }}>
-            {weeks.map((week, wi) => (
-              <div key={wi} style={{ display: 'flex', flexDirection: 'column', gap: BLOCK_GAP }}>
-                {Array.from({ length: 7 }).map((_, di) => {
-                  const day = week[di];
-                  if (!day) return <div key={di} style={{ width: BLOCK_SIZE, height: BLOCK_SIZE }} />;
-                  const dateStr = formatDate(day);
-                  const amount = earningsMap[dateStr] || 0;
-                  const color = getColor(amount, thresholds);
-                  const selected = isSelected(day);
-                  return (
-                    <div
-                      key={di}
-                      title={`${dateStr}: $${amount.toFixed(2)}`}
-                      onClick={() => handleDayClick(day)}
-                      style={{
-                        width: BLOCK_SIZE,
-                        height: BLOCK_SIZE,
-                        background: color,
-                        borderRadius: 3,
-                        border: selected ? '2px solid #00bcd4' : '1px solid #cfd8dc',
-                        cursor: 'pointer',
-                        transition: 'background 0.2s, border 0.2s',
-                        boxShadow: selected ? '0 0 4px 2px #00bcd488' : undefined
-                      }}
-                    />
-                  );
-                })}
-              </div>
+          <div style={{ position: 'relative', flex: 1 }}>
+            {/* Month labels absolutely positioned */}
+            {monthLabelPositions.map(({ label, left }, i) => (
+              left + 40 <= gridWidth ? (
+                <div
+                  key={i}
+                  className="heatmap-month-label"
+                  style={{ left }}
+                >
+                  {label}
+                </div>
+              ) : null
             ))}
+            {/* Heatmap grid */}
+            <div className="heatmap-grid">
+              {weeks.map((week, wi) => (
+                <div key={wi} className="heatmap-week">
+                  {Array.from({ length: 7 }).map((_, di) => {
+                    const day = week[di];
+                    if (!day) return <div key={di} className="heatmap-block" />;
+                    const dateStr = formatDate(day);
+                    const { amount = 0, status = undefined } = earningsMap[dateStr] || {};
+                    const color = getColor(amount, thresholds, status);
+                    const selected = isSelected(day);
+                    return (
+                      <div
+                        key={di}
+                        title={`${dateStr}: $${amount.toFixed(2)}${status ? ' (' + status + ')' : ''}`}
+                        onClick={() => handleDayClick(day)}
+                        className={`heatmap-block${selected ? ' selected' : ''}`}
+                        style={{ background: color }}
+                      />
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
-      {/* Legend */}
-      <div style={{ display: 'flex', gap: 8, marginTop: 10, fontSize: 12, alignItems: 'center', color: '#888' }}>
-        <span>Less</span>
-        {COLORS.map((c, i) => (
-          <span key={i} style={{ width: BLOCK_SIZE, height: BLOCK_SIZE, background: c, display: 'inline-block', borderRadius: 3, border: '1px solid #cfd8dc' }} />
-        ))}
-        <span>More</span>
+        {/* Legend */}
+        <div className="heatmap-legend">
+          <span>Less</span>
+          {COLORS.map((c, i) => (
+            <span key={i} className="heatmap-legend-block" style={{ background: c }} />
+          ))}
+          <span>More</span>
+          <span className="heatmap-legend-block" style={{ background: PENDING_COLOR, marginLeft: 8 }} />
+          <span>Pending</span>
+        </div>
       </div>
     </div>
   );

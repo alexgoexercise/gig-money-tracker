@@ -100,16 +100,18 @@ class DatabaseManager {
     );
   }
 
-  addRegularGig(gig, startDate, endDate, dayOfWeek) {
+  addRegularGig(gig, startDate, endDate, days) {
     // Only create the parent regular gig
+    const routineDaysStr = Array.isArray(days) ? days.join(',') : (typeof days === 'string' ? days : '');
     const parentGigData = {
       ...gig,
       date: startDate,
       gig_type: 'regular_gig',
       is_recurring: true,
-      recurring_pattern: `weekly_${dayOfWeek}`,
+      recurring_pattern: days.length === 1 ? `weekly_${days[0]}` : 'custom_multi',
       recurring_end_date: endDate,
-      parent_gig_id: null
+      parent_gig_id: null,
+      full_time_days: routineDaysStr
     };
     const parentResult = this.addGig(parentGigData);
     const parentId = parentResult.lastInsertRowid;

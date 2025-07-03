@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import StatsGrid from './components/StatsGrid';
 import GigForm from './components/GigForm';
 import GigList from './components/GigList';
 import Notification from './components/Notification';
 import RegularGigDetails from './components/RegularGigDetails';
-import FullTimeGigDetails from './components/FullTimeGigDetails';
 import 'react-calendar/dist/Calendar.css';
 import EarningsHeatmap from './components/EarningsHeatmap';
 import './styles.css';
@@ -13,39 +11,29 @@ const currency = 'SGD'; // Change this to your preferred currency code (e.g., 'E
 
 function App() {
   const [gigs, setGigs] = useState([]);
-  const [stats, setStats] = useState({
-    totalEarnings: 0,
-    totalExpenses: 0,
-    netIncome: 0
-  });
+  const [totalEarnings, setTotalEarnings] = useState(0);
   const [notification, setNotification] = useState(null);
   const [editingGig, setEditingGig] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedRange, setSelectedRange] = useState(null);
   const [selectedGigType, setSelectedGigType] = useState('all');
   const [selectedRegularGig, setSelectedRegularGig] = useState(null);
-  const [selectedFullTimeGig, setSelectedFullTimeGig] = useState(null);
   const [calendarMode, setCalendarMode] = useState('single'); // 'single' or 'range'
   const [formKey, setFormKey] = useState(0);
 
   // Load initial data
   useEffect(() => {
-    loadStats();
+    loadTotalEarnings();
     loadGigs();
   }, []);
 
-  const loadStats = async () => {
+  const loadTotalEarnings = async () => {
     try {
-      const [earnings, expenses, netIncome] = await Promise.all([
-        window.electronAPI.getTotalEarnings(),
-        window.electronAPI.getTotalExpenses(),
-        window.electronAPI.getNetIncome()
-      ]);
-
-      setStats({ totalEarnings: earnings, totalExpenses: expenses, netIncome });
+      const earnings = await window.electronAPI.getTotalEarnings();
+      setTotalEarnings(earnings);
     } catch (error) {
-      console.error('Error loading stats:', error);
-      showNotification('Error loading statistics', 'error');
+      console.error('Error loading total earnings:', error);
+      showNotification('Error loading total earnings', 'error');
     }
   };
 
@@ -68,13 +56,43 @@ function App() {
     loadGigs();
   }, [selectedGigType]);
 
+  // Helper to generate all scheduled occurrences for a regular gig
+  function generateRegularGigOccurrences(gig, overrides = {}) {
+    if (!gig || !gig.date || !gig.recurring_end_date || !gig.recurring_pattern) return [];
+    if (typeof gig.recurring_pattern !== 'string' || !gig.recurring_pattern.startsWith('weekly_')) return [];
+    const start = new Date(gig.date);
+    const end = new Date(gig.recurring_end_date);
+    const dayOfWeek = parseInt(gig.recurring_pattern.replace('weekly_', ''));
+    const occurrences = [];
+    let current = new Date(start);
+    // Move to the first correct day of week
+    while (current.getDay() !== dayOfWeek) {
+      current.setDate(current.getDate() + 1);
+    }
+    while (current <= end) {
+      const isoDate = current.toISOString().split('T')[0];
+      const override = overrides[isoDate];
+      occurrences.push({
+        date: isoDate,
+        status: override?.status || 'pending',
+        amount: override?.amount !== null && override?.amount !== undefined ? override.amount : gig.amount,
+        notes: override?.notes || ''
+      });
+      current.setDate(current.getDate() + 7);
+    }
+    return occurrences;
+  }
+
   // After loading gigs, fetch occurrences for regular and full-time gigs
   useEffect(() => {
     async function fetchOccurrences() {
       const updatedGigs = await Promise.all(gigs.map(async gig => {
-        if (gig.gig_type === 'regular_gig' || gig.gig_type === 'full_time_gig') {
-          const occurrences = await window.electronAPI.getAllOccurrenceOverridesForGig(gig.id);
-          return { ...gig, occurrences };
+        if (gig.gig_type === 'regular_gig') {
+          const overridesArr = await window.electronAPI.getAllOccurrenceOverridesForGig(gig.id);
+          const overrides = {};
+          overridesArr.forEach(o => { overrides[o.date] = o; });
+          let allOccurrences = generateRegularGigOccurrences(gig, overrides);
+          return { ...gig, occurrences: allOccurrences };
         }
         return gig;
       }));
@@ -86,8 +104,14 @@ function App() {
 
   const earningsByDay = useMemo(() => aggregateEarningsByDay(gigs), [gigs]);
 
-  const handleAddGig = async (gigData) => {
+  const handleAddGig = async (gigData, options = {}) => {
     try {
+      if (options.refreshOnly) {
+        await loadTotalEarnings();
+        await loadGigs();
+        setFormKey(k => k + 1);
+        return;
+      }
       if (editingGig) {
         await window.electronAPI.updateGig(editingGig.id, gigData);
         showNotification('Gig updated successfully!', 'success');
@@ -96,7 +120,7 @@ function App() {
         await window.electronAPI.addGig(gigData);
         showNotification('Gig added successfully!', 'success');
       }
-      await loadStats();
+      await loadTotalEarnings();
       await loadGigs();
       setFormKey(k => k + 1); // Force form reset
     } catch (error) {
@@ -113,8 +137,10 @@ function App() {
     if (window.confirm('Are you sure you want to delete this gig?')) {
       try {
         await window.electronAPI.deleteGig(id);
-        await loadStats();
+        await loadTotalEarnings();
         await loadGigs();
+        setFormKey(k => k + 1); // Force form reset
+        setEditingGig(null); // Clear editing state
         showNotification('Gig deleted successfully!', 'success');
       } catch (error) {
         console.error('Error deleting gig:', error);
@@ -132,20 +158,7 @@ function App() {
   };
 
   const handleRegularGigUpdate = async () => {
-    await loadStats();
-    await loadGigs();
-  };
-
-  const handleFullTimeGigClick = (fullTimeGig) => {
-    setSelectedFullTimeGig(fullTimeGig);
-  };
-
-  const handleFullTimeGigClose = () => {
-    setSelectedFullTimeGig(null);
-  };
-
-  const handleFullTimeGigUpdate = async () => {
-    await loadStats();
+    await loadTotalEarnings();
     await loadGigs();
   };
 
@@ -158,16 +171,21 @@ function App() {
   const getFilteredGigs = () => {
     let filteredGigs = gigs;
     if (selectedDate) {
+      const selectedDateStr = new Date(selectedDate).toISOString().split('T')[0];
       filteredGigs = gigs.filter(gig => {
         if (gig.gig_type === 'sub_gig') {
-          return gig.date === new Date(selectedDate).toISOString().split('T')[0];
+          return gig.date === selectedDateStr;
         } else if (gig.gig_type === 'regular_gig') {
-          if (gig.occurrences) {
-            return gig.occurrences.some(occ => occ.date === new Date(selectedDate).toISOString().split('T')[0]);
+          // Show if occurrence exists OR if selectedDate is within period and matches day of week
+          if (gig.occurrences && gig.occurrences.some(occ => occ.date === selectedDateStr)) {
+            return true;
           }
-        } else if (gig.gig_type === 'full_time_gig') {
-          if (gig.occurrences) {
-            return gig.occurrences.some(occ => occ.date === new Date(selectedDate).toISOString().split('T')[0]);
+          if (gig.date && gig.recurring_end_date && gig.recurring_pattern) {
+            const start = new Date(gig.date);
+            const end = new Date(gig.recurring_end_date);
+            const dayOfWeek = parseInt(gig.recurring_pattern.replace('weekly_', ''));
+            const sel = new Date(selectedDateStr);
+            return sel >= start && sel <= end && sel.getDay() === dayOfWeek;
           }
         }
         return false;
@@ -179,12 +197,20 @@ function App() {
         if (gig.gig_type === 'sub_gig') {
           return gig.date >= startDate && gig.date <= endDate;
         } else if (gig.gig_type === 'regular_gig') {
-          if (gig.occurrences) {
-            return gig.occurrences.some(occ => occ.date >= startDate && occ.date <= endDate);
+          if (gig.occurrences && gig.occurrences.some(occ => occ.date >= startDate && occ.date <= endDate)) {
+            return true;
           }
-        } else if (gig.gig_type === 'full_time_gig') {
-          if (gig.occurrences) {
-            return gig.occurrences.some(occ => occ.date >= startDate && occ.date <= endDate);
+          if (gig.date && gig.recurring_end_date && gig.recurring_pattern) {
+            const periodStart = new Date(gig.date);
+            const periodEnd = new Date(gig.recurring_end_date);
+            const dayOfWeek = parseInt(gig.recurring_pattern.replace('weekly_', ''));
+            let d = new Date(startDate);
+            while (d <= new Date(endDate)) {
+              if (d >= periodStart && d <= periodEnd && d.getDay() === dayOfWeek) {
+                return true;
+              }
+              d.setDate(d.getDate() + 1);
+            }
           }
         }
         return false;
@@ -214,22 +240,7 @@ function App() {
         }
         return false;
       });
-      // Full-time gigs: check if this date is in the range and matches any routine day
-      const hasFullTimeGig = gigs.some(gig => {
-        if (gig.gig_type === 'full_time_gig') {
-          const start = new Date(gig.full_time_start_date);
-          const end = new Date(gig.full_time_end_date);
-          const current = new Date(dateStr);
-          if (current >= start && current <= end) {
-            if (gig.full_time_days) {
-              const days = gig.full_time_days.split(',').map(Number);
-              return days.includes(current.getDay());
-            }
-          }
-        }
-        return false;
-      });
-      return (hasSubGig || hasRegularGig || hasFullTimeGig) ? <span style={{ color: '#667eea', fontWeight: 'bold' }}>•</span> : null;
+      return (hasSubGig || hasRegularGig) ? <span style={{ color: '#667eea', fontWeight: 'bold' }}>•</span> : null;
     }
     return null;
   };
@@ -252,60 +263,41 @@ function App() {
   };
 
   function aggregateEarningsByDay(gigs) {
-    // Map: yyyy-mm-dd -> total amount
+    // Map: yyyy-mm-dd -> { amount, status }
     const map = {};
     gigs.forEach(gig => {
-      if (gig.status === 'completed') {
-        if (gig.gig_type === 'sub_gig') {
-          // One-off
-          map[gig.date] = (map[gig.date] || 0) + (gig.amount || 0);
-        } else if (gig.gig_type === 'regular_gig') {
-          // Use gig_occurrences for overrides
-          if (gig.occurrences) {
-            gig.occurrences.forEach(occ => {
-              if (occ.status === 'completed') {
-                map[occ.date] = (map[occ.date] || 0) + (occ.amount || gig.amount || 0);
-              }
-            });
-          }
-        } else if (gig.gig_type === 'full_time_gig') {
-          if (gig.occurrences) {
-            gig.occurrences.forEach(occ => {
-              if (occ.status === 'completed') {
-                map[occ.date] = (map[occ.date] || 0) + (occ.amount || gig.amount || 0);
-              }
-            });
-          }
+      if (gig.gig_type === 'sub_gig') {
+        map[gig.date] = { amount: gig.amount || 0, status: gig.status };
+      } else if (gig.gig_type === 'regular_gig') {
+        if (gig.occurrences) {
+          gig.occurrences.forEach(occ => {
+            // If already completed, overwrite; otherwise, pending/cancelled
+            if (!map[occ.date] || map[occ.date].status !== 'completed') {
+              map[occ.date] = { amount: occ.amount || gig.amount || 0, status: occ.status };
+            }
+          });
         }
       }
     });
     // Convert to array
-    return Object.entries(map).map(([date, amount]) => ({ date, amount }));
+    return Object.entries(map).map(([date, { amount, status }]) => ({ date, amount, status }));
   }
 
   return (
     <div className="container">
       <div className="header">
         <h1>Gig Money Tracker</h1>
-        <p>Track your freelance income and expenses</p>
+        <p>Track your freelance gig income</p>
       </div>
 
       <div className="stats-grid">
-        <div className="stats-card">
+        <div className="stats-card glass-card">
           <div className="stats-card-title">Total Earnings</div>
-          <div className="stats-card-value">{stats.totalEarnings.toLocaleString(undefined, { style: 'currency', currency })}</div>
-        </div>
-        <div className="stats-card">
-          <div className="stats-card-title">Total Expenses</div>
-          <div className="stats-card-value">{stats.totalExpenses.toLocaleString(undefined, { style: 'currency', currency })}</div>
-        </div>
-        <div className="stats-card">
-          <div className="stats-card-title">Net Income</div>
-          <div className="stats-card-value">{stats.netIncome.toLocaleString(undefined, { style: 'currency', currency })}</div>
+          <div className="stats-card-value">{totalEarnings.toLocaleString(undefined, { style: 'currency', currency })}</div>
         </div>
       </div>
 
-      <div className="heatmap-card">
+      <div className="heatmap-card glass-card">
         <div className="heatmap-title">Earnings Heatmap (Past Year)</div>
         <EarningsHeatmap
           earningsByDay={earningsByDay}
@@ -321,42 +313,41 @@ function App() {
           }}
         />
         {(selectedDate || (selectedRange && selectedRange[0] && selectedRange[1])) && (
-          <div style={{ marginTop: 18, fontSize: 15, color: '#444' }}>
+          <div className="date-selection-info">
             {selectedDate ? (
               <>Showing gigs for: <b>{new Date(selectedDate).toLocaleDateString()}</b></>
             ) : (
               <>Showing gigs from: <b>{selectedRange[0].toLocaleDateString()}</b> to <b>{selectedRange[1].toLocaleDateString()}</b></>
             )}
-            (<a href="#" style={{ marginLeft: 8 }} onClick={e => { e.preventDefault(); setSelectedDate(null); setSelectedRange(null); }}>Show all</a>)
+            (<a href="#" className="clear-selection-link" onClick={e => { e.preventDefault(); setSelectedDate(null); setSelectedRange(null); }}>Show all</a>)
           </div>
         )}
       </div>
 
       <div className="main-content">
-        <div className="section">
+        <div className="section glass-card">
           <h2>{editingGig ? 'Edit Gig' : 'Add New Gig'}</h2>
           <GigForm
             key={formKey}
+            resetTrigger={formKey}
             onSubmit={handleAddGig}
             editingGig={editingGig}
             onCancel={() => setEditingGig(null)}
           />
         </div>
 
-        <div className="section">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
+        <div className="section glass-card">
+          <div className="gigs-header">
             <h2>Gigs</h2>
-            <div>
-              <label style={{ marginRight: 10 }}>Filter by type:</label>
+            <div className="filter-controls">
+              <label>Filter by type:</label>
               <select
                 value={selectedGigType}
                 onChange={(e) => setSelectedGigType(e.target.value)}
-                style={{ padding: '5px', borderRadius: '4px' }}
               >
                 <option value="all">All Gigs</option>
                 <option value="sub_gig">Sub Gigs</option>
                 <option value="regular_gig">Regular Gigs</option>
-                <option value="full_time_gig">Full-time Gigs</option>
               </select>
             </div>
           </div>
@@ -365,7 +356,6 @@ function App() {
             onEdit={handleEditGig} 
             onDelete={handleDeleteGig}
             onRegularGigClick={handleRegularGigClick}
-            onFullTimeGigClick={handleFullTimeGigClick}
           />
         </div>
       </div>
@@ -382,14 +372,6 @@ function App() {
           regularGig={selectedRegularGig}
           onClose={handleRegularGigClose}
           onUpdate={handleRegularGigUpdate}
-        />
-      )}
-
-      {selectedFullTimeGig && (
-        <FullTimeGigDetails
-          fullTimeGig={selectedFullTimeGig}
-          onClose={handleFullTimeGigClose}
-          onUpdate={handleFullTimeGigUpdate}
         />
       )}
     </div>

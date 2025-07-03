@@ -1,4 +1,5 @@
 import React, { useMemo, useEffect, useState } from 'react';
+import './FullTimeGigDetails.css';
 
 const FullTimeGigDetails = ({ fullTimeGig, onClose }) => {
   const [overrides, setOverrides] = useState({});
@@ -56,7 +57,7 @@ const FullTimeGigDetails = ({ fullTimeGig, onClose }) => {
     const override = overrides[isoDate];
     setEditForm({
       status: override?.status || 'pending',
-      amount: override?.amount !== null && override?.amount !== undefined ? override.amount : fullTimeGig.amount,
+      amount: override?.amount !== null && override?.amount !== undefined ? parseInt(override.amount, 10) : parseInt(fullTimeGig.amount, 10),
       notes: override?.notes || ''
     });
   };
@@ -72,9 +73,13 @@ const FullTimeGigDetails = ({ fullTimeGig, onClose }) => {
       fullTimeGig.id,
       isoDate,
       editForm.status,
-      parseFloat(editForm.amount),
+      parseInt(editForm.amount, 10),
       editForm.notes
     );
+    // If marking as completed, also update parent gig status
+    if (editForm.status === 'completed' && fullTimeGig.status !== 'completed') {
+      await window.electronAPI.updateGig(fullTimeGig.id, { ...fullTimeGig, status: 'completed' });
+    }
     // Refresh overrides
     const data = await window.electronAPI.getAllOccurrenceOverridesForGig(fullTimeGig.id);
     const map = {};
@@ -107,10 +112,10 @@ const FullTimeGigDetails = ({ fullTimeGig, onClose }) => {
           <button className="close-button" onClick={onClose}>&times;</button>
         </div>
         <div className="modal-body">
-          <div className="full-time-gig-info" style={{ background: '#f0f8ff', border: '1px solid #b3d9ff', borderRadius: 8, padding: 16, marginBottom: 20 }}>
-            <h3 style={{ color: '#007bff', margin: 0 }}>{fullTimeGig.title}</h3>
-            {fullTimeGig.description && <p style={{ margin: '5px 0' }}>{fullTimeGig.description}</p>}
-            <div className="gig-meta" style={{ display: 'flex', flexWrap: 'wrap', gap: 20 }}>
+          <div className="full-time-gig-info">
+            <h3 className="fulltimedetails-title">{fullTimeGig.title}</h3>
+            {fullTimeGig.description && <p className="fulltimedetails-description">{fullTimeGig.description}</p>}
+            <div className="gig-meta">
               <div><strong>Amount:</strong> {formatCurrency(fullTimeGig.amount)}</div>
               <div><strong>Place:</strong> {fullTimeGig.gig_place}</div>
               <div><strong>Period:</strong> {formatDate(fullTimeGig.full_time_start_date)} to {formatDate(fullTimeGig.full_time_end_date)}</div>
@@ -131,17 +136,10 @@ const FullTimeGigDetails = ({ fullTimeGig, onClose }) => {
                   const notes = override?.notes || '';
                   
                   return (
-                    <div key={idx} className="daily-gig-item" style={{ 
-                      background: '#fff', 
-                      border: `2px solid ${getStatusColor(status)}`, 
-                      borderRadius: 8, 
-                      marginBottom: 10, 
-                      padding: 12,
-                      position: 'relative'
-                    }}>
+                    <div key={idx} className={`fulltimedetails-occurrence fulltimedetails-occurrence-${status}`}>
                       {editingIdx === idx ? (
-                        <form onSubmit={e => { e.preventDefault(); handleEditSave(date); }} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                          <div style={{ fontWeight: 'bold', color: '#007bff' }}>{formatDate(date)}</div>
+                        <form onSubmit={e => { e.preventDefault(); handleEditSave(date); }} className="fulltimedetails-edit-form">
+                          <div className="fulltimedetails-date">{formatDate(date)}</div>
                           <div>
                             <label>Status: </label>
                             <select name="status" value={editForm.status} onChange={handleEditChange}>
@@ -152,7 +150,7 @@ const FullTimeGigDetails = ({ fullTimeGig, onClose }) => {
                           </div>
                           <div>
                             <label>Amount: </label>
-                            <input name="amount" type="number" step="0.01" value={editForm.amount} onChange={handleEditChange} />
+                            <input name="amount" type="number" step="1" min="0" value={editForm.amount} onChange={handleEditChange} />
                           </div>
                           <div>
                             <label>Notes: </label>
@@ -161,52 +159,37 @@ const FullTimeGigDetails = ({ fullTimeGig, onClose }) => {
                               value={editForm.notes} 
                               onChange={handleEditChange}
                               rows="3"
-                              style={{ width: '100%', padding: '5px', borderRadius: '4px', border: '1px solid #ccc' }}
+                              className="fulltimedetails-notes"
                               placeholder="Add any notes about this occurrence..."
                             />
                           </div>
-                          <div style={{ display: 'flex', gap: 8 }}>
+                          <div className="fulltimedetails-btn-row">
                             <button type="submit" className="btn btn-small btn-primary">Save</button>
                             <button type="button" className="btn btn-small btn-secondary" onClick={() => setEditingIdx(null)}>Cancel</button>
                           </div>
                         </form>
                       ) : (
-                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                              <span style={{ fontWeight: 'bold', color: '#007bff' }}>{formatDate(date)}</span>
-                              <span style={{ 
-                                fontSize: '12px', 
-                                padding: '2px 8px', 
-                                borderRadius: '12px', 
-                                backgroundColor: getStatusColor(status),
-                                color: 'white',
-                                fontWeight: 'bold'
-                              }}>
+                        <div className="fulltimedetails-occurrence-row">
+                          <div className="fulltimedetails-occurrence-col">
+                            <div className="fulltimedetails-occurrence-header">
+                              <div className="fulltimedetails-date">{formatDate(date)}</div>
+                              <span className={`fulltimedetails-status fulltimedetails-status-${status}`}>
                                 {getStatusIcon(status)} {status.toUpperCase()}
                               </span>
                             </div>
-                            <div style={{ color: '#007bff', fontWeight: 'bold', fontSize: '16px', marginBottom: 8 }}>
-                              {formatCurrency(amount)}
+                            <div className="fulltimedetails-amount">
+                              {amount}
                             </div>
                             {notes && (
-                              <div style={{ 
-                                fontSize: '12px', 
-                                color: '#666', 
-                                backgroundColor: '#f8f9fa', 
-                                padding: '8px', 
-                                borderRadius: '4px',
-                                marginBottom: 8
-                              }}>
+                              <div className="fulltimedetails-notes">
                                 <strong>Notes:</strong> {notes}
                               </div>
                             )}
                           </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                          <div className="fulltimedetails-btn-col">
                             <button 
                               className="btn btn-small" 
                               onClick={() => handleEdit(idx, date)}
-                              style={{ fontSize: '12px', padding: '4px 8px' }}
                             >
                               Edit
                             </button>
@@ -219,16 +202,18 @@ const FullTimeGigDetails = ({ fullTimeGig, onClose }) => {
                                     fullTimeGig.id,
                                     isoDate,
                                     'completed',
-                                    amount,
+                                    parseInt(amount, 10),
                                     notes
                                   );
+                                  if (fullTimeGig.status !== 'completed') {
+                                    await window.electronAPI.updateGig(fullTimeGig.id, { ...fullTimeGig, status: 'completed' });
+                                  }
                                   // Refresh overrides
                                   const data = await window.electronAPI.getAllOccurrenceOverridesForGig(fullTimeGig.id);
                                   const map = {};
                                   data.forEach(o => { map[o.date] = o; });
                                   setOverrides(map);
                                 }}
-                                style={{ fontSize: '12px', padding: '4px 8px', backgroundColor: '#28a745', color: 'white' }}
                               >
                                 Mark Complete
                               </button>
