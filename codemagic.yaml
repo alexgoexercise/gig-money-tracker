@@ -11,7 +11,11 @@ workflows:
       - name: Install Python 3.11 (macOS)
         script: |
           if [ "$CM_BUILD_PLATFORM" = "macos" ]; then
-            if [ -d "/opt/homebrew" ]; then
+            # Check if Python 3.11 is already available
+            if command -v python3.11 &> /dev/null; then
+              echo "Python 3.11 already available"
+              ln -sf $(which python3.11) /usr/local/bin/python3
+            elif [ -d "/opt/homebrew" ]; then
               # Apple Silicon
               brew install python@3.11
               export PATH="/opt/homebrew/opt/python@3.11/bin:$PATH"
@@ -25,11 +29,26 @@ workflows:
             python3 --version
             which python3
           fi
-      - name: Ensure Python distutils and setuptools (macOS)
+      - name: Install Python distutils and setuptools (macOS)
         script: |
           if [ "$CM_BUILD_PLATFORM" = "macos" ]; then
             python3 -m ensurepip
+            python3 -m pip install --upgrade pip setuptools wheel
+            # Install distutils for Python 3.11+
             python3 -m pip install setuptools
+            # Ensure distutils is available
+            python3 -c "import distutils; print('distutils available')" || python3 -m pip install setuptools
+            
+            # Alternative: Install distutils separately if needed
+            if ! python3 -c "import distutils" 2>/dev/null; then
+              echo "Installing distutils separately..."
+              python3 -m pip install setuptools --force-reinstall
+              # Try to install distutils from a compatible source
+              python3 -m pip install --upgrade setuptools
+            fi
+            
+            # Verify distutils is working
+            python3 -c "import distutils; print('distutils version:', distutils.__version__)"
           fi
       - name: Set Python for npm/node-gyp (macOS)
         script: |
@@ -37,6 +56,8 @@ workflows:
             PY3=$(which python3)
             npm config set python "$PY3"
             echo "npm python set to $PY3"
+            # Also set for node-gyp
+            npm config set python "$PY3"
           fi
       - name: Debug Python version (macOS)
         script: |
@@ -44,12 +65,15 @@ workflows:
             which python3
             python3 --version
             python3 -m pip --version
+            python3 -c "import distutils; print('distutils version:', distutils.__version__)"
           fi
       - name: Set up platform-specific dependencies
         script: |
           # Install platform-specific build tools
           if [ "$CM_BUILD_PLATFORM" = "macos" ]; then
             npm config set python python3
+            # Ensure node-gyp uses the correct Python
+            npm config set python $(which python3)
           elif [ "$CM_BUILD_PLATFORM" = "windows" ]; then
             npm config set msvs_version 2019
             npm config set python python3
@@ -63,12 +87,43 @@ workflows:
           # Install dependencies with verbose output for debugging
           npm ci --verbose
           
-          # Rebuild native dependencies for the target platform
+          # Skip the postinstall script that causes issues
+          npm config set ignore-scripts true
+          
+          # Manually rebuild native dependencies for the target platform
           if [ "$CM_BUILD_PLATFORM" = "macos" ]; then
-            npm rebuild better-sqlite3 --target_platform=darwin --target_arch=x64
+            # Re-enable scripts for the rebuild
+            npm config set ignore-scripts false
+            echo "Rebuilding better-sqlite3 for macOS..."
+            npm rebuild better-sqlite3 --target_platform=darwin --target_arch=x64 || {
+              echo "First rebuild attempt failed, trying alternative approach..."
+              # Alternative: Use electron-rebuild
+              npx electron-rebuild -f -w better-sqlite3
+            }
           elif [ "$CM_BUILD_PLATFORM" = "windows" ]; then
-            npm rebuild better-sqlite3 --target_platform=win32 --target_arch=x64
+            # Re-enable scripts for the rebuild
+            npm config set ignore-scripts false
+            echo "Rebuilding better-sqlite3 for Windows..."
+            npm rebuild better-sqlite3 --target_platform=win32 --target_arch=x64 || {
+              echo "First rebuild attempt failed, trying alternative approach..."
+              # Alternative: Use electron-rebuild
+              npx electron-rebuild -f -w better-sqlite3
+            }
           fi
+          
+      - name: Verify native modules
+        script: |
+          echo "Verifying better-sqlite3 native module..."
+          node -e "
+            try {
+              const sqlite3 = require('better-sqlite3');
+              console.log('better-sqlite3 loaded successfully');
+              console.log('Version:', sqlite3.VERSION);
+            } catch (error) {
+              console.error('Failed to load better-sqlite3:', error.message);
+              process.exit(1);
+            }
+          "
           
       # - name: Set up code signing settings
       #   script: |
