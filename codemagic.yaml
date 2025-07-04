@@ -8,34 +8,34 @@ workflows:
       xcode: latest
       cocoapods: default
     scripts:
-      - name: Set up code signing settings
-        script: |
-          # Set up code signing for macOS
-          if [ "$CM_BUILD_PLATFORM" = "macos" ]; then
-            # Set up code signing identity
-            if [ -n "$MAC_CERTS_BASE64" ]; then
-              echo $MAC_CERTS_BASE64 | base64 --decode > /tmp/certificates.p12
-              # Create keychain
-              security create-keychain -p "" build.keychain
-              security default-keychain -s build.keychain
-              security unlock-keychain -p "" build.keychain
-              security set-keychain-settings build.keychain
-              # Import certificate
-              security import /tmp/certificates.p12 -k build.keychain -P "$MAC_CERTS_PASSWORD" -T /usr/bin/codesign
-              security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain
-              # Set up entitlements
-              cp build/entitlements.mac.plist /tmp/entitlements.mac.plist
-            fi
-          fi
+      # - name: Set up code signing settings
+      #   script: |
+      #     # Set up code signing for macOS
+      #     if [ "$CM_BUILD_PLATFORM" = "macos" ]; then
+      #       # Set up code signing identity
+      #       if [ -n "$MAC_CERTS_BASE64" ]; then
+      #         echo $MAC_CERTS_BASE64 | base64 --decode > /tmp/certificates.p12
+      #         # Create keychain
+      #         security create-keychain -p "" build.keychain
+      #         security default-keychain -s build.keychain
+      #         security unlock-keychain -p "" build.keychain
+      #         security set-keychain-settings build.keychain
+      #         # Import certificate
+      #         security import /tmp/certificates.p12 -k build.keychain -P "$MAC_CERTS_PASSWORD" -T /usr/bin/codesign
+      #         security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain
+      #         # Set up entitlements
+      #         cp build/entitlements.mac.plist /tmp/entitlements.mac.plist
+      #       fi
+      #     fi
           
-          # Set up code signing for Windows
-          if [ "$CM_BUILD_PLATFORM" = "windows" ]; then
-            if [ -n "$WINDOWS_CERT_BASE64" ]; then
-              echo $WINDOWS_CERT_BASE64 | base64 --decode > /tmp/certificate.pfx
-              # Set up certificate for Windows signing
-              export CERTIFICATE_PATH="/tmp/certificate.pfx"
-            fi
-          fi
+      #     # Set up code signing for Windows
+      #     if [ "$CM_BUILD_PLATFORM" = "windows" ]; then
+      #       if [ -n "$WINDOWS_CERT_BASE64" ]; then
+      #         echo $WINDOWS_CERT_BASE64 | base64 --decode > /tmp/certificate.pfx
+      #         # Set up certificate for Windows signing
+      #         export CERTIFICATE_PATH="/tmp/certificate.pfx"
+      #       fi
+      #     fi
       - name: Install dependencies
         script: |
           npm ci
@@ -74,7 +74,7 @@ workflows:
     publishing:
       email:
         recipients:
-          - $PUBLISH_EMAIL
+          - alexzhaolixiuqi@gmail.com
       scripts:
         - name: Create GitHub release
           script: |
