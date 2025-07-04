@@ -171,47 +171,15 @@ workflows:
       #         export CERTIFICATE_PATH="/tmp/certificate.pfx"
       #       fi
       #     fi
-      - name: Build application
+      - name: Build Electron app
         script: |
-          npm run build
-      - name: Build Electron app for macOS
-        script: |
-          if [ "$CM_BUILD_PLATFORM" = "macos" ]; then
-            # Build for macOS
-            echo "Starting macOS build..."
-            npm run dist:mac
-            
-            # Check if build was successful
-            echo "Checking macOS build output..."
-            ls -la release/ || echo "release folder not found"
-            ls -la release/mac/ || echo "mac folder not found"
-            
-            # Sign the app if certificate is available
-            if [ -n "$MAC_CERTS_BASE64" ]; then
-              codesign --force --deep --sign "Developer ID Application: $MAC_DEVELOPER_NAME" --entitlements /tmp/entitlements.mac.plist release/mac/Gig\ Money\ Tracker.app
-            fi
-          fi
-      - name: Build Electron app for Windows
-        script: |
-          if [ "$CM_BUILD_PLATFORM" = "windows" ]; then
-            # Build for Windows
-            echo "Starting Windows build..."
-            npm run dist:win
-            
-            # Check if build was successful
-            echo "Checking Windows build output..."
-            ls -la release/ || echo "release folder not found"
-            ls -la release/win-unpacked/ || echo "win-unpacked folder not found"
-            
-            # Sign the installer if certificate is available
-            if [ -n "$WINDOWS_CERT_BASE64" ]; then
-              # Sign the executable
-              signtool sign /f /tmp/certificate.pfx /p "$WINDOWS_CERT_PASSWORD" /t http://timestamp.digicert.com /v "release/win-unpacked/Gig Money Tracker.exe"
-              
-              # Sign the installer
-              signtool sign /f /tmp/certificate.pfx /p "$WINDOWS_CERT_PASSWORD" /t http://timestamp.digicert.com /v "release/Gig Money Tracker Setup.exe"
-            fi
-          fi
+          echo "CM_BUILD_PLATFORM is: $CM_BUILD_PLATFORM"
+          echo "Starting Electron packaging..."
+          npm run dist:mac || npm run dist:win || echo "Both mac and win packaging failed"
+          echo "Checking release output..."
+          ls -la release/ || echo "release folder not found"
+          ls -la release/mac/ || echo "mac folder not found"
+          ls -la release/win-unpacked/ || echo "win-unpacked folder not found"
           
       - name: Final build verification
         script: |
