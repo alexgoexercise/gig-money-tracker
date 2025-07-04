@@ -18,9 +18,6 @@ const createWindow = () => {
 
   // Load the built React app
   mainWindow.loadFile(path.join(__dirname, 'dist', 'index.html'))
-  
-  // Open DevTools for debugging
-  mainWindow.webContents.openDevTools()
 }
 
 // Initialize database
