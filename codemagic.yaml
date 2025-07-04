@@ -8,11 +8,25 @@ workflows:
       xcode: latest
       cocoapods: default
     scripts:
-      - name: Install Python distutils (macOS)
+      - name: Ensure Python distutils and setuptools (macOS)
         script: |
           if [ "$CM_BUILD_PLATFORM" = "macos" ]; then
             python3 -m ensurepip
             python3 -m pip install setuptools
+            python3 -m pip install distutils
+          fi
+      - name: Set Python for npm/node-gyp (macOS)
+        script: |
+          if [ "$CM_BUILD_PLATFORM" = "macos" ]; then
+            export PYTHON=$(which python3)
+            npm config set python "$PYTHON"
+          fi
+      - name: Debug Python version (macOS)
+        script: |
+          if [ "$CM_BUILD_PLATFORM" = "macos" ]; then
+            which python3
+            python3 --version
+            python3 -m pip --version
           fi
       - name: Set up platform-specific dependencies
         script: |
