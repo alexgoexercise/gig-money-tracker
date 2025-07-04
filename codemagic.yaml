@@ -11,10 +11,19 @@ workflows:
       - name: Install Python 3.11 (macOS)
         script: |
           if [ "$CM_BUILD_PLATFORM" = "macos" ]; then
-            brew install python@3.11
-            export PATH="/usr/local/opt/python@3.11/bin:$PATH"
-            ln -sf /usr/local/opt/python@3.11/bin/python3 /usr/local/bin/python3
+            if [ -d "/opt/homebrew" ]; then
+              # Apple Silicon
+              brew install python@3.11
+              export PATH="/opt/homebrew/opt/python@3.11/bin:$PATH"
+              ln -sf /opt/homebrew/opt/python@3.11/bin/python3 /usr/local/bin/python3
+            else
+              # Intel
+              brew install python@3.11
+              export PATH="/usr/local/opt/python@3.11/bin:$PATH"
+              ln -sf /usr/local/opt/python@3.11/bin/python3 /usr/local/bin/python3
+            fi
             python3 --version
+            which python3
           fi
       - name: Ensure Python distutils and setuptools (macOS)
         script: |
@@ -25,8 +34,9 @@ workflows:
       - name: Set Python for npm/node-gyp (macOS)
         script: |
           if [ "$CM_BUILD_PLATFORM" = "macos" ]; then
-            export PYTHON=$(which python3)
-            npm config set python "$PYTHON"
+            PY3=$(which python3)
+            npm config set python "$PY3"
+            echo "npm python set to $PY3"
           fi
       - name: Debug Python version (macOS)
         script: |
