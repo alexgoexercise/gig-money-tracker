@@ -178,4 +178,43 @@
   border: none !important;
   outline: none !important;
   box-shadow: none !important;
+}
+
+/* Year selector dropdown styles */
+.heatmap-year-selector {
+  font-size: 1rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  background: #222;
+  color: #fff;
+}
+
+/* Header container styles */
+.heatmap-header {
+  width: 100%;
+  max-width: 700px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+/* Title styles */
+.heatmap-title {
+  margin: 0;
+}
+
+/* Flex container styles */
+.heatmap-flex-container {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  width: 100%;
+}
+
+/* Relative container styles */
+.heatmap-relative-container {
+  position: relative;
+  flex: 1;
 } 

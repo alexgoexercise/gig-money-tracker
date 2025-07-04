@@ -1,0 +1,92 @@
+workflows:
+  electron-build:
+    name: Electron Build
+    environment:
+      vars:
+        PACKAGE_NAME: "gig-money-tracker"
+      node: latest
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Set up code signing settings
+        script: |
+          # Set up code signing for macOS
+          if [ "$CM_BUILD_PLATFORM" = "macos" ]; then
+            # Set up code signing identity
+            if [ -n "$MAC_CERTS_BASE64" ]; then
+              echo $MAC_CERTS_BASE64 | base64 --decode > /tmp/certificates.p12
+              # Create keychain
+              security create-keychain -p "" build.keychain
+              security default-keychain -s build.keychain
+              security unlock-keychain -p "" build.keychain
+              security set-keychain-settings build.keychain
+              # Import certificate
+              security import /tmp/certificates.p12 -k build.keychain -P "$MAC_CERTS_PASSWORD" -T /usr/bin/codesign
+              security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain
+              # Set up entitlements
+              cp build/entitlements.mac.plist /tmp/entitlements.mac.plist
+            fi
+          fi
+          
+          # Set up code signing for Windows
+          if [ "$CM_BUILD_PLATFORM" = "windows" ]; then
+            if [ -n "$WINDOWS_CERT_BASE64" ]; then
+              echo $WINDOWS_CERT_BASE64 | base64 --decode > /tmp/certificate.pfx
+              # Set up certificate for Windows signing
+              export CERTIFICATE_PATH="/tmp/certificate.pfx"
+            fi
+          fi
+      - name: Install dependencies
+        script: |
+          npm ci
+      - name: Build application
+        script: |
+          npm run build
+      - name: Build Electron app for macOS
+        script: |
+          if [ "$CM_BUILD_PLATFORM" = "macos" ]; then
+            # Build for macOS
+            npm run dist:mac
+            
+            # Sign the app if certificate is available
+            if [ -n "$MAC_CERTS_BASE64" ]; then
+              codesign --force --deep --sign "Developer ID Application: $MAC_DEVELOPER_NAME" --entitlements /tmp/entitlements.mac.plist release/mac/Gig\ Money\ Tracker.app
+            fi
+          fi
+      - name: Build Electron app for Windows
+        script: |
+          if [ "$CM_BUILD_PLATFORM" = "windows" ]; then
+            # Build for Windows
+            npm run dist:win
+            
+            # Sign the installer if certificate is available
+            if [ -n "$WINDOWS_CERT_BASE64" ]; then
+              # Sign the executable
+              signtool sign /f /tmp/certificate.pfx /p "$WINDOWS_CERT_PASSWORD" /t http://timestamp.digicert.com /v "release/win-unpacked/Gig Money Tracker.exe"
+              
+              # Sign the installer
+              signtool sign /f /tmp/certificate.pfx /p "$WINDOWS_CERT_PASSWORD" /t http://timestamp.digicert.com /v "release/Gig Money Tracker Setup.exe"
+            fi
+          fi
+    artifacts:
+      - release/**/*
+      - build/**/*
+    publishing:
+      email:
+        recipients:
+          - $PUBLISH_EMAIL
+      scripts:
+        - name: Create GitHub release
+          script: |
+            # Create GitHub release with artifacts
+            if [ "$CM_BUILD_PLATFORM" = "macos" ]; then
+              gh release create v$CM_BUILD_NUMBER \
+                --title "Gig Money Tracker v$CM_BUILD_NUMBER" \
+                --notes "Automated build from Codemagic CI/CD" \
+                release/mac/Gig\ Money\ Tracker.dmg
+            elif [ "$CM_BUILD_PLATFORM" = "windows" ]; then
+              gh release create v$CM_BUILD_NUMBER \
+                --title "Gig Money Tracker v$CM_BUILD_NUMBER" \
+                --notes "Automated build from Codemagic CI/CD" \
+                "release/Gig Money Tracker Setup.exe"
+            fi 

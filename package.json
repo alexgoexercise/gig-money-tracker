@@ -12,7 +12,60 @@
     "watch": "webpack --mode development --watch",
     "start": "npm run build:dev && electron .",
     "dev": "npm run build:dev && electron . --dev",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "postinstall": "electron-builder install-app-deps",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:mac": "npm run build && electron-builder --mac"
+  },
+  "build": {
+    "appId": "com.gigmoneytracker.app",
+    "productName": "Gig Money Tracker",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "main.cjs",
+      "preload.cjs",
+      "database.cjs",
+      "node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "node_modules/better-sqlite3/build/Release/",
+        "to": "better-sqlite3/build/Release/",
+        "filter": ["*.node"]
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.finance",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
   },
   "devDependencies": {
     "@babel/core": "^7.27.7",
@@ -21,16 +74,17 @@
     "babel-loader": "^10.0.0",
     "css-loader": "^7.1.2",
     "electron": "^37.1.0",
+    "electron-builder": "^24.9.1",
     "electron-rebuild": "^3.2.9",
     "html-webpack-plugin": "^5.6.3",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "style-loader": "^4.0.0",
     "webpack": "^5.99.9",
     "webpack-cli": "^6.0.1"
   },
   "dependencies": {
     "better-sqlite3": "^11.6.0",
-    "react-calendar": "^4.0.0"
+    "react-calendar": "^4.8.0"
   }
 }

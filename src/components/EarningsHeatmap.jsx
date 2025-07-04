@@ -79,7 +79,8 @@ const EarningsHeatmap = ({ earningsByDay, selectedDate, selectedRange, onSelectD
   // Get all days for the selected year
   const days = useMemo(() => getYearDays(selectedYear), [selectedYear]);
 
-  // Find max amount for scaling
+  // Find max amount for scaling, for now we set a hard 400 as the max earning per day
+
   // const max = Math.max(0, ...Object.values(earningsMap));
   const max = 400;
   // 4 thresholds for 5 levels
@@ -99,33 +100,40 @@ const EarningsHeatmap = ({ earningsByDay, selectedDate, selectedRange, onSelectD
     }
     week.push(new Date(date));
   });
+  // weeks[[week 0] [week 1]...], week always end with a Saturday
+  // eg. Week 1: [new Date(2024, 11, 15), new Date(2024, 11, 16), new Date(2024, 11, 17), new Date(2024, 11, 18) (end with a Saturday)]
+  //     Week 2: [new Date(2024, 11, 19), new Date(2024, 11, 20), new Date(2024, 11, 21), new Date(2024, 11, 22), new Date(2024, 11, 23), new Date(2024, 11, 24), new Date(2024, 11, 25)]
   if (week.length) weeks.push(week);
 
-  // Calculate offset for the first week (how many days before the first block)
-  const firstDayOfWeek = days[0].getDay();
-
   // Find the column index of the first block of each month
-  const monthLabelPositions = [];
+  const monthLabelPositions = []; // Array to store the month labels and their positions (horizontal coordinates)
   let lastMonth = null;
   let colIndex = 0;
+
+  // Check through each week and each day of the week to find the first day of each month
+  // Add the month label to the monthLabelPositions array
   weeks.forEach((week, wi) => {
     for (let di = 0; di < 7; di++) {
       const day = week[di];
       if (day && day.getDate() === 1) {
+        // Only ruuns if 1. day exists (there can be weeks with less than 7 days); 2. day is the first day of the month
+        // get date returns the day of the date in the month (eg. 1, 2, 3, etc.)
         const month = day.getMonth();
         if (month !== lastMonth) {
+          // If the month is different from the last month, add the month label
           monthLabelPositions.push({
             label: day.toLocaleString('default', { month: 'short' }),
-            left: colIndex * (BLOCK_SIZE + BLOCK_GAP)
+            left: colIndex * (BLOCK_SIZE + BLOCK_GAP)  //calculate the horizontal position of the month label
           });
           lastMonth = month;
         }
       }
     }
-    colIndex++;
+    colIndex++;  // Increment the column index by 1 each week
   });
 
   // Calculate grid width for hiding overflowing month labels
+  // weeks.length is the number of weeks, BLOCK_SIZE + BLOCK_GAP is the width of each block and the gap between blocks
   const gridWidth = weeks.length * (BLOCK_SIZE + BLOCK_GAP) - BLOCK_GAP;
 
   // Selection logic
@@ -168,12 +176,12 @@ const EarningsHeatmap = ({ earningsByDay, selectedDate, selectedRange, onSelectD
 
   return (
     <div className="heatmap-container">
-      <div className="heatmap-header" style={{ width: '100%', maxWidth: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h2 className="heatmap-title" style={{ margin: 0 }}>Earnings Heatmap (Past Year)</h2>
+      <div className="heatmap-header">
+        <h2 className="heatmap-title">Earnings Heatmap (Past Year)</h2>
         <select
           value={selectedYear}
           onChange={e => setSelectedYear(Number(e.target.value))}
-          style={{ fontSize: '1rem', padding: '4px 8px', borderRadius: 6, border: '1px solid #ccc', background: '#222', color: '#fff' }}
+          className="heatmap-year-selector"
         >
           {yearOptions.map(y => (
             <option key={y} value={y}>{y}</option>
@@ -181,7 +189,7 @@ const EarningsHeatmap = ({ earningsByDay, selectedDate, selectedRange, onSelectD
         </select>
       </div>
       <div className="heatmap-card">
-        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', width: '100%' }}>
+        <div className="heatmap-flex-container">
           {/* Weekday labels */}
           <div className="heatmap-week-labels">
             {Array.from({ length: 7 }).map((_, i) => (
@@ -191,7 +199,7 @@ const EarningsHeatmap = ({ earningsByDay, selectedDate, selectedRange, onSelectD
               >{weekdayLabelIndexes.includes(i) ? WEEKDAYS[i] : ''}</div>
             ))}
           </div>
-          <div style={{ position: 'relative', flex: 1 }}>
+          <div className="heatmap-relative-container">
             {/* Month labels absolutely positioned */}
             {monthLabelPositions.map(({ label, left }, i) => (
               left + 40 <= gridWidth ? (
