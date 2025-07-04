@@ -178,7 +178,13 @@ workflows:
         script: |
           if [ "$CM_BUILD_PLATFORM" = "macos" ]; then
             # Build for macOS
+            echo "Starting macOS build..."
             npm run dist:mac
+            
+            # Check if build was successful
+            echo "Checking macOS build output..."
+            ls -la release/ || echo "release folder not found"
+            ls -la release/mac/ || echo "mac folder not found"
             
             # Sign the app if certificate is available
             if [ -n "$MAC_CERTS_BASE64" ]; then
@@ -189,7 +195,13 @@ workflows:
         script: |
           if [ "$CM_BUILD_PLATFORM" = "windows" ]; then
             # Build for Windows
+            echo "Starting Windows build..."
             npm run dist:win
+            
+            # Check if build was successful
+            echo "Checking Windows build output..."
+            ls -la release/ || echo "release folder not found"
+            ls -la release/win-unpacked/ || echo "win-unpacked folder not found"
             
             # Sign the installer if certificate is available
             if [ -n "$WINDOWS_CERT_BASE64" ]; then
@@ -200,9 +212,31 @@ workflows:
               signtool sign /f /tmp/certificate.pfx /p "$WINDOWS_CERT_PASSWORD" /t http://timestamp.digicert.com /v "release/Gig Money Tracker Setup.exe"
             fi
           fi
+          
+      - name: Final build verification
+        script: |
+          echo "=== FINAL BUILD VERIFICATION ==="
+          echo "Current directory: $(pwd)"
+          echo "Directory contents:"
+          ls -la
+          echo ""
+          echo "Release folder contents:"
+          ls -la release/ || echo "No release folder found"
+          echo ""
+          echo "Build folder contents:"
+          ls -la build/ || echo "No build folder found"
+          echo ""
+          echo "Dist folder contents:"
+          ls -la dist/ || echo "No dist folder found"
+          echo "=== END VERIFICATION ==="
+          
     artifacts:
       - release/**/*
       - build/**/*
+      - dist/**/*
+      - "*.exe"
+      - "*.dmg"
+      - "*.app"
     publishing:
       email:
         recipients:
