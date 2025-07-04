@@ -95,19 +95,37 @@ workflows:
             # Re-enable scripts for the rebuild
             npm config set ignore-scripts false
             echo "Rebuilding better-sqlite3 for macOS..."
+            
+            # Try multiple rebuild approaches
             npm rebuild better-sqlite3 --target_platform=darwin --target_arch=x64 || {
-              echo "First rebuild attempt failed, trying alternative approach..."
-              # Alternative: Use electron-rebuild
-              npx electron-rebuild -f -w better-sqlite3
+              echo "Standard rebuild failed, trying electron-rebuild..."
+              npx electron-rebuild -f -w better-sqlite3 || {
+                echo "electron-rebuild failed, trying manual compilation..."
+                cd node_modules/better-sqlite3
+                npm run build-release || {
+                  echo "Manual compilation failed, trying with different Python..."
+                  PYTHON=$(which python3) npm run build-release
+                }
+                cd ../..
+              }
             }
           elif [ "$CM_BUILD_PLATFORM" = "windows" ]; then
             # Re-enable scripts for the rebuild
             npm config set ignore-scripts false
             echo "Rebuilding better-sqlite3 for Windows..."
+            
+            # Try multiple rebuild approaches
             npm rebuild better-sqlite3 --target_platform=win32 --target_arch=x64 || {
-              echo "First rebuild attempt failed, trying alternative approach..."
-              # Alternative: Use electron-rebuild
-              npx electron-rebuild -f -w better-sqlite3
+              echo "Standard rebuild failed, trying electron-rebuild..."
+              npx electron-rebuild -f -w better-sqlite3 || {
+                echo "electron-rebuild failed, trying manual compilation..."
+                cd node_modules/better-sqlite3
+                npm run build-release || {
+                  echo "Manual compilation failed, trying with different Python..."
+                  PYTHON=$(which python3) npm run build-release
+                }
+                cd ../..
+              }
             }
           fi
           
