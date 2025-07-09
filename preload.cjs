@@ -12,15 +12,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteGig: (id) => ipcRenderer.invoke('db-delete-gig', id),
   getGigById: (id) => ipcRenderer.invoke('db-get-gig-by-id', id),
   
-  // Expense operations
-  getAllExpenses: () => ipcRenderer.invoke('db-get-all-expenses'),
-  addExpense: (expense) => ipcRenderer.invoke('db-add-expense', expense),
-  getExpensesByGig: (gigId) => ipcRenderer.invoke('db-get-expenses-by-gig', gigId),
+
   
   // Analytics
   getTotalEarnings: () => ipcRenderer.invoke('db-get-total-earnings'),
-  getTotalExpenses: () => ipcRenderer.invoke('db-get-total-expenses'),
-  getNetIncome: () => ipcRenderer.invoke('db-get-net-income'),
 
   // Gig Place operations
   getAllGigPlaces: () => ipcRenderer.invoke('db-get-all-gig-places'),

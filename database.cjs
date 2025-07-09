@@ -34,29 +34,16 @@ class DatabaseManager {
         is_recurring BOOLEAN DEFAULT 0,
         recurring_pattern TEXT,
         recurring_end_date TEXT,
-        parent_gig_id INTEGER,
         full_time_start_date TEXT,
         full_time_end_date TEXT,
         full_time_days TEXT, -- comma-separated weekdays (0=Sun,1=Mon,...)
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (gig_place_id) REFERENCES gig_places (id),
-        FOREIGN KEY (parent_gig_id) REFERENCES gigs (id)
+        FOREIGN KEY (gig_place_id) REFERENCES gig_places (id)
       )
     `);
 
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS expenses (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        gig_id INTEGER,
-        description TEXT NOT NULL,
-        amount REAL NOT NULL,
-        date TEXT NOT NULL,
-        category TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (gig_id) REFERENCES gigs (id)
-      )
-    `);
+
 
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS gig_occurrences (
@@ -79,8 +66,8 @@ class DatabaseManager {
     // gig.gig_place can be a name; get or create the place and use its id
     const gigPlaceId = this.getOrCreateGigPlace(gig.gig_place);
     const stmt = this.db.prepare(`
-      INSERT INTO gigs (title, description, amount, date, status, gig_place_id, gig_type, is_recurring, recurring_pattern, recurring_end_date, parent_gig_id, full_time_start_date, full_time_end_date, full_time_days)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO gigs (title, description, amount, date, status, gig_place_id, gig_type, is_recurring, recurring_pattern, recurring_end_date, full_time_start_date, full_time_end_date, full_time_days)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     return stmt.run(
       gig.title, 
@@ -90,10 +77,9 @@ class DatabaseManager {
       gig.status || 'pending', 
       gigPlaceId,
       gig.gig_type || 'sub_gig',
-      gig.is_recurring ? 1 : 0,
+      gig.is_recurring,
       gig.recurring_pattern || null,
       gig.recurring_end_date || null,
-      null, // parent_gig_id always null for all gig types
       gig.full_time_start_date || null,
       gig.full_time_end_date || null,
       gig.full_time_days || null
@@ -110,7 +96,6 @@ class DatabaseManager {
       is_recurring: true,
       recurring_pattern: days.length === 1 ? `weekly_${days[0]}` : 'custom_multi',
       recurring_end_date: endDate,
-      parent_gig_id: null,
       full_time_days: routineDaysStr
     };
     const parentResult = this.addGig(parentGigData);
@@ -123,37 +108,20 @@ class DatabaseManager {
       SELECT gigs.*, gig_places.name as gig_place 
       FROM gigs 
       LEFT JOIN gig_places ON gigs.gig_place_id = gig_places.id 
-      WHERE (
-        (gig_type = 'sub_gig' AND parent_gig_id IS NULL)
-        OR (gig_type = 'regular_gig' AND parent_gig_id IS NULL)
-        OR (gig_type = 'full_time_gig' AND parent_gig_id IS NULL)
-      )
       ORDER BY date DESC
     `);
     return stmt.all();
   }
 
   getGigsByType(gigType) {
-    if (gigType === 'regular_gig') {
-      // For regular gigs, only show the parent gigs
-      const stmt = this.db.prepare(`
-        SELECT gigs.*, gig_places.name as gig_place 
-        FROM gigs 
-        LEFT JOIN gig_places ON gigs.gig_place_id = gig_places.id 
-        WHERE gig_type = 'regular_gig' AND parent_gig_id IS NULL
-        ORDER BY date DESC
-      `);
-      return stmt.all();
-    } else {
-      const stmt = this.db.prepare(`
-        SELECT gigs.*, gig_places.name as gig_place 
-        FROM gigs 
-        LEFT JOIN gig_places ON gigs.gig_place_id = gig_places.id 
-        WHERE gig_type = ?
-        ORDER BY date DESC
-      `);
-      return stmt.all(gigType);
-    }
+    const stmt = this.db.prepare(`
+      SELECT gigs.*, gig_places.name as gig_place 
+      FROM gigs 
+      LEFT JOIN gig_places ON gigs.gig_place_id = gig_places.id 
+      WHERE gig_type = ?
+      ORDER BY date DESC
+    `);
+    return stmt.all(gigType);
   }
 
   getGigById(id) {
@@ -176,7 +144,7 @@ class DatabaseManager {
       gig.status, 
       gigPlaceId, 
       gig.gig_type || 'sub_gig',
-      gig.is_recurring ? 1 : 0,
+      gig.is_recurring,
       gig.recurring_pattern || null,
       gig.recurring_end_date || null,
       id
@@ -191,29 +159,7 @@ class DatabaseManager {
     return stmt.run(id);
   }
 
-  // Expense operations
-  addExpense(expense) {
-    const stmt = this.db.prepare(`
-      INSERT INTO expenses (gig_id, description, amount, date, category)
-      VALUES (?, ?, ?, ?, ?)
-    `);
-    return stmt.run(expense.gig_id, expense.description, expense.amount, expense.date, expense.category);
-  }
 
-  getAllExpenses() {
-    const stmt = this.db.prepare(`
-      SELECT e.*, g.title as gig_title 
-      FROM expenses e 
-      LEFT JOIN gigs g ON e.gig_id = g.id 
-      ORDER BY e.date DESC
-    `);
-    return stmt.all();
-  }
-
-  getExpensesByGigId(gigId) {
-    const stmt = this.db.prepare('SELECT * FROM expenses WHERE gig_id = ? ORDER BY date DESC');
-    return stmt.all(gigId);
-  }
 
   // Analytics
   getTotalEarnings() {
@@ -221,14 +167,7 @@ class DatabaseManager {
     return stmt.get().total || 0;
   }
 
-  getTotalExpenses() {
-    const stmt = this.db.prepare('SELECT SUM(amount) as total FROM expenses');
-    return stmt.get().total || 0;
-  }
 
-  getNetIncome() {
-    return this.getTotalEarnings() - this.getTotalExpenses();
-  }
 
   // Gig Place operations
   getOrCreateGigPlace(name) {

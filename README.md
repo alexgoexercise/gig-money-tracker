@@ -6,8 +6,7 @@ A desktop application built with Electron and SQLite to help gigging musicians t
 
 - **Gig Management**: Add, edit, and delete  gigs
 - **Income Tracking**: Track earnings with status updates (pending, completed, cancelled)
-- **Expense Tracking**: Record expenses associated with gigs
-- **Financial Analytics**: View total earnings, expenses, and net income
+- **Financial Analytics**: View total earnings and income tracking
 - **Modern UI**: Clean, responsive interface with real-time updates
 - **Local Storage**: Data stored locally using SQLite database (no need to connect to the internet)
 
@@ -19,6 +18,14 @@ A desktop application built with Electron and SQLite to help gigging musicians t
 - **Database**: SQLite
 
 ## Installation
+
+### First Method:
+
+Install from the file **Gig Money Tracker Setup 1.0.0.exe**.
+
+### Second Method:
+
+*(Ensured that Node.js is installed)*
 
 1. Clone the repository:
 ```bash
@@ -43,6 +50,8 @@ For development with DevTools enabled:
 npm run dev
 ```
 
+Note: Downloading Electron can take a WHILE.
+
 ## Database Schema
 
 ### Gigs Table
@@ -55,14 +64,7 @@ npm run dev
 - `created_at` - Creation timestamp
 - `updated_at` - Last update timestamp
 
-### Expenses Table
-- `id` - Primary key
-- `gig_id` - Foreign key to gigs table
-- `description` - Expense description
-- `amount` - Expense amount
-- `date` - Expense date
-- `category` - Expense category
-- `created_at` - Creation timestamp
+
 
 ## Project Structure
 
@@ -93,7 +95,7 @@ gig-money-tracker/
 2. **Viewing Gigs**: All gigs are displayed on the right side with their status and amount
 3. **Editing Gigs**: Click the "Edit" button on any gig to modify its details
 4. **Deleting Gigs**: Click the "Delete" button to remove a gig (with confirmation)
-5. **Financial Overview**: View your total earnings, expenses, and net income at the top
+5. **Financial Overview**: View your total earnings at the top
 
 ## Data Storage
 

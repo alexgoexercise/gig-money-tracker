@@ -2,6 +2,11 @@ const { app, BrowserWindow, ipcMain } = require('electron')
 const DatabaseManager = require('./database.cjs')
 const path = require('path')
 
+// Fix ICU data path for packaged app
+if (process.resourcesPath) {
+  process.env.ICU_DATA_DIR = path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules', 'electron', 'dist')
+}
+
 let mainWindow
 let dbManager
 
@@ -42,17 +47,13 @@ ipcMain.handle('db-get-gigs-by-type', async (event, gigType) => {
   return dbManager.getGigsByType(gigType)
 })
 
-ipcMain.handle('db-get-weekly-gigs-for-regular-gig', async (event, parentGigId) => {
-  return dbManager.getWeeklyGigsForRegularGig(parentGigId)
-})
+
 
 ipcMain.handle('db-update-gig', async (event, id, gig) => {
   return dbManager.updateGig(id, gig)
 })
 
-ipcMain.handle('db-update-weekly-gig', async (event, id, gig) => {
-  return dbManager.updateWeeklyGig(id, gig)
-})
+
 
 ipcMain.handle('db-delete-gig', async (event, id) => {
   return dbManager.deleteGig(id)
@@ -62,29 +63,13 @@ ipcMain.handle('db-get-gig-by-id', async (event, id) => {
   return dbManager.getGigById(id)
 })
 
-ipcMain.handle('db-get-all-expenses', async () => {
-  return dbManager.getAllExpenses()
-})
 
-ipcMain.handle('db-add-expense', async (event, expense) => {
-  return dbManager.addExpense(expense)
-})
-
-ipcMain.handle('db-get-expenses-by-gig', async (event, gigId) => {
-  return dbManager.getExpensesByGigId(gigId)
-})
 
 ipcMain.handle('db-get-total-earnings', async () => {
   return dbManager.getTotalEarnings()
 })
 
-ipcMain.handle('db-get-total-expenses', async () => {
-  return dbManager.getTotalExpenses()
-})
 
-ipcMain.handle('db-get-net-income', async () => {
-  return dbManager.getNetIncome()
-})
 
 ipcMain.handle('db-get-all-gig-places', async () => {
   return dbManager.getAllGigPlaces();

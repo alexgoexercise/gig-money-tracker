@@ -1,7 +1,7 @@
 {
   "name": "gig-money-tracker",
   "version": "1.0.0",
-  "description": "A desktop application to track freelance income and expenses built with Electron and SQLite",
+  "description": "A desktop application to track freelance gig income built with Electron and SQLite",
   "license": "ISC",
   "author": "",
   "type": "module",
@@ -14,9 +14,10 @@
     "dev": "npm run build:dev && electron . --dev",
     "test": "echo \"Error: no test specified\" && exit 1",
     "pack": "npm run build && electron-builder --dir",
-    "dist": "npm run build && electron-builder",
-    "dist:win": "npm run build && electron-builder --win",
-    "dist:mac": "npm run build && electron-builder --mac"
+    "rebuild": "electron-rebuild",
+    "dist": "npm run build && npm run rebuild && electron-builder",
+    "dist:win": "npm run build && npm run rebuild && electron-builder --win",
+    "dist:mac": "npm run build && npm run rebuild && electron-builder --mac"
   },
   "build": {
     "appId": "com.gigmoneytracker.app",
@@ -29,13 +30,20 @@
       "main.cjs",
       "preload.cjs",
       "database.cjs",
-      "node_modules/**/*"
+      "node_modules/**/*",
+      "!node_modules/**/test/**/*",
+      "!node_modules/**/*.map"
     ],
     "extraResources": [
       {
         "from": "node_modules/better-sqlite3/build/Release/",
         "to": "better-sqlite3/build/Release/",
         "filter": ["*.node"]
+      },
+      {
+        "from": "node_modules/electron/dist/",
+        "to": ".",
+        "filter": ["icudtl.dat", "v8_context_snapshot.bin"]
       }
     ],
     "mac": {
@@ -56,6 +64,12 @@
         {
           "target": "nsis",
           "arch": ["x64"]
+        }
+      ],
+      "extraFiles": [
+        {
+          "from": "node_modules/electron/dist/icudtl.dat",
+          "to": "icudtl.dat"
         }
       ]
     },

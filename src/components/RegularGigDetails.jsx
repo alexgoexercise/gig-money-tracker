@@ -263,7 +263,7 @@ const RegularGigDetails = ({ regularGig, onClose }) => {
                           </div>
                           <div>
                             <label>Amount: </label>
-                            <input name="amount" type="number" step="1" min="0" value={editForm.amount} onChange={handleEditChange} />
+                            <input name="amount" type="number" step="0.01" min="0" value={editForm.amount} onChange={handleEditChange} />
                           </div>
                           <div>
                             <label>Notes: </label>
@@ -291,7 +291,7 @@ const RegularGigDetails = ({ regularGig, onClose }) => {
                               </span>
                             </div>
                             <div className="regulardetails-amount">
-                              {amount}
+                              {formatCurrency(amount)}
                             </div>
                             {override?.notes && (
                               <div className="regulardetails-notes">

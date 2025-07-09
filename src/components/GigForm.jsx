@@ -76,7 +76,7 @@ const GigForm = ({ onSubmit, editingGig, onCancel, resetTrigger }) => {
     
     const gigData = {
       ...formData,
-      amount: parseInt(formData.amount, 10)
+      amount: parseFloat(formData.amount) || 0
     };
 
     try {
@@ -177,7 +177,7 @@ const GigForm = ({ onSubmit, editingGig, onCancel, resetTrigger }) => {
           name="amount"
           value={formData.amount}
           onChange={handleChange}
-          step="1"
+          step="0.01"
           min="0"
           required
         />

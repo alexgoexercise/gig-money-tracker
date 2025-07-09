@@ -7,9 +7,10 @@ function getYearDays(year) {
   const today = new Date();
   let start, end;
   if (year === today.getFullYear()) {
-    // From last year today to today
+    // From the first day of the same month last year to today
     start = new Date(today);
     start.setFullYear(today.getFullYear() - 1);
+    start.setDate(1); // move to 1st of that month so full month is included
     end = today;
   } else {
     // Full calendar year
@@ -55,12 +56,22 @@ function isDateInRange(date, start, end) {
 }
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const WEEKDAY_LABELS = ['Mon', 'Wed', 'Fri'];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-const BLOCK_SIZE = 12;
-const BLOCK_GAP = 3;
+// Sizing constants
+const LABEL_COL_WIDTH = 28; // px for the weekday label column
+const CELL_SIZE = 10;        // px for each day square (width & height)
+const SPACER_COL_WIDTH = 6; // px spacer column between months
 
-const WEEKDAY_LABEL_WIDTH = 32; // px, match CSS
+// Helper: get week index (0-5) of date within its month (Sunday-start)
+function getWeekOfMonth(date) {
+  const firstOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+  const dayOfWeek = firstOfMonth.getDay(); // 0 (Sun) - 6 (Sat)
+  return Math.floor((date.getDate() + dayOfWeek - 1) / 7);
+}
+
+const BLOCK_SIZE = CELL_SIZE;
+const BLOCK_GAP = 1;
 
 const EarningsHeatmap = ({ earningsByDay, selectedDate, selectedRange, onSelectDate, onSelectRange }) => {
   // Map: yyyy-mm-dd -> { amount, status }
@@ -79,62 +90,189 @@ const EarningsHeatmap = ({ earningsByDay, selectedDate, selectedRange, onSelectD
   // Get all days for the selected year
   const days = useMemo(() => getYearDays(selectedYear), [selectedYear]);
 
-  // Find max amount for scaling, for now we set a hard 400 as the max earning per day
+  // Calculate statistics
+  const stats = useMemo(() => {
+    const activeDays = days.filter(date => {
+      const dateStr = formatDate(date);
+      const { amount = 0 } = earningsMap[dateStr] || {};
+      return amount > 0;
+    }).length;
+    
+    const totalDays = days.length;
+    
+    // Calculate streaks
+    const { maxStreak, currentStreak } = calculateStreaks(days, earningsMap);
+    
+    return {
+      totalGigs: Object.values(earningsMap).reduce((sum, { amount = 0 }) => sum + (amount > 0 ? 1 : 0), 0),
+      activeDays,
+      totalDays,
+      maxStreak,
+      currentStreak
+    };
+  }, [days, earningsMap]);
 
-  // const max = Math.max(0, ...Object.values(earningsMap));
+  // Helper function to calculate max streak and current streak
+  function calculateStreaks(days, earningsMap) {
+    if (days.length === 0) return { maxStreak: 0, currentStreak: 0 };
+    
+    // Sort days chronologically to ensure proper order
+    const sortedDays = [...days].sort((a, b) => a.getTime() - b.getTime());
+    
+    let maxStreak = 0;
+    let currentStreakCount = 0;
+    let tempStreak = 0;
+    
+    // Check each day for activity
+    for (let i = 0; i < sortedDays.length; i++) {
+      const dateStr = formatDate(sortedDays[i]);
+      const { amount = 0 } = earningsMap[dateStr] || {};
+      const hasActivity = amount > 0;
+      
+      if (hasActivity) {
+        tempStreak++;
+        maxStreak = Math.max(maxStreak, tempStreak);
+      } else {
+        tempStreak = 0; // Reset streak when no activity
+      }
+    }
+    
+    // Calculate current streak (from today backwards)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day for comparison
+    
+    // Find today's position in our sorted days array
+    let todayIndex = -1;
+    for (let i = sortedDays.length - 1; i >= 0; i--) {
+      const dayTime = new Date(sortedDays[i]);
+      dayTime.setHours(0, 0, 0, 0);
+      if (dayTime.getTime() <= today.getTime()) {
+        todayIndex = i;
+        break;
+      }
+    }
+    
+    // Calculate current streak starting from today (or most recent day) backwards
+    if (todayIndex >= 0) {
+      for (let i = todayIndex; i >= 0; i--) {
+        const dateStr = formatDate(sortedDays[i]);
+        const { amount = 0 } = earningsMap[dateStr] || {};
+        const hasActivity = amount > 0;
+        
+        if (hasActivity) {
+          currentStreakCount++;
+        } else {
+          break; // Stop at first day without activity
+        }
+      }
+    }
+    
+    return { maxStreak, currentStreak: currentStreakCount };
+  }
+
+  // Find max amount for scaling
   const max = 400;
-  // 4 thresholds for 5 levels
   const thresholds = [
     max * 0.25,
     max * 0.5,
     max * 0.75
   ];
 
-  // Group days by week (for vertical columns)
-  const weeks = [];
-  let week = [];
-  days.forEach((date, i) => {
-    if (date.getDay() === 0 && week.length) {
-      weeks.push(week);
-      week = [];
-    }
-    week.push(new Date(date));
-  });
-  // weeks[[week 0] [week 1]...], week always end with a Saturday
-  // eg. Week 1: [new Date(2024, 11, 15), new Date(2024, 11, 16), new Date(2024, 11, 17), new Date(2024, 11, 18) (end with a Saturday)]
-  //     Week 2: [new Date(2024, 11, 19), new Date(2024, 11, 20), new Date(2024, 11, 21), new Date(2024, 11, 22), new Date(2024, 11, 23), new Date(2024, 11, 24), new Date(2024, 11, 25)]
-  if (week.length) weeks.push(week);
+  // Replace monthLabels & monthGapWeeks definitions with new monthKeys
+  const monthKeys = useMemo(() => {
+    const keys = new Set();
+    days.forEach(d => {
+      // key in format YYYY-MM
+      keys.add(`${d.getFullYear()}-${String(d.getMonth()).padStart(2,'0')}`);
+    });
+    return Array.from(keys).sort((a,b)=> new Date(a+'-01') - new Date(b+'-01'));
+  }, [days]);
 
-  // Find the column index of the first block of each month
-  const monthLabelPositions = []; // Array to store the month labels and their positions (horizontal coordinates)
-  let lastMonth = null;
-  let colIndex = 0;
+  const monthIndexMap = useMemo(() => {
+    const map = {};
+    monthKeys.forEach((k,i)=>{ map[k]=i; });
+    return map;
+  }, [monthKeys]);
 
-  // Check through each week and each day of the week to find the first day of each month
-  // Add the month label to the monthLabelPositions array
-  weeks.forEach((week, wi) => {
-    for (let di = 0; di < 7; di++) {
-      const day = week[di];
-      if (day && day.getDate() === 1) {
-        // Only ruuns if 1. day exists (there can be weeks with less than 7 days); 2. day is the first day of the month
-        // get date returns the day of the date in the month (eg. 1, 2, 3, etc.)
-        const month = day.getMonth();
-        if (month !== lastMonth) {
-          // If the month is different from the last month, add the month label
-          monthLabelPositions.push({
-            label: day.toLocaleString('default', { month: 'short' }),
-            left: colIndex * (BLOCK_SIZE + BLOCK_GAP)  //calculate the horizontal position of the month label
-          });
-          lastMonth = month;
-        }
+  // Build month meta with dynamic weeksCount
+  const monthMeta = useMemo(() => {
+    // Build lookup of week indices per month
+    const monthWeekMap = {};
+    days.forEach(d => {
+      const key = `${d.getFullYear()}-${String(d.getMonth()).padStart(2,'0')}`;
+      const w = getWeekOfMonth(d);
+      if (!monthWeekMap[key]) monthWeekMap[key] = new Set();
+      monthWeekMap[key].add(w);
+    });
+
+    const result = [];
+    let colCursor = 2; // first usable grid column (after weekday labels)
+
+    monthKeys.forEach((k, i) => {
+      const weeksSet = monthWeekMap[k] || new Set();
+      let weeksCount = 6; // default full
+      if (i === monthKeys.length - 1) {
+        // last month - compute up to active week
+        const maxWeek = Math.max(...Array.from(weeksSet));
+        weeksCount = Math.min(maxWeek + 1, 6);
       }
-    }
-    colIndex++;  // Increment the column index by 1 each week
-  });
 
-  // Calculate grid width for hiding overflowing month labels
-  // weeks.length is the number of weeks, BLOCK_SIZE + BLOCK_GAP is the width of each block and the gap between blocks
-  const gridWidth = weeks.length * (BLOCK_SIZE + BLOCK_GAP) - BLOCK_GAP;
+      const [yearStr, monStr] = k.split('-');
+      const monthNum = Number(monStr);
+      const labelText = new Date(Number(yearStr), monthNum).toLocaleString('default', { month: 'short' });
+      const show = weeksSet.has(4);
+
+      result.push({ key: k, index: i, label: labelText, show, colStart: colCursor, weeksCount });
+
+      // advance cursor: weeks + spacer (except after last)
+      colCursor += weeksCount + 1; // +1 for spacer
+    });
+
+    return result;
+  }, [monthKeys, days]);
+
+  // Build gridTemplateColumns using monthMeta
+  const gridTemplateColumns = useMemo(() => {
+    const cols = [`${LABEL_COL_WIDTH}px`];
+    monthMeta.forEach((m, idx) => {
+      if (idx > 0) cols.push(`${SPACER_COL_WIDTH}px`);
+      for (let j = 0; j < m.weeksCount; j++) cols.push(`${CELL_SIZE}px`);
+    });
+    return cols.join(' ');
+  }, [monthMeta]);
+
+  // Create grid structure: organize days into weeks starting from Sunday
+  const weeks = useMemo(() => {
+    if (days.length === 0) return [];
+    
+    const firstDay = days[0];
+    const startOfWeek = new Date(firstDay);
+    startOfWeek.setDate(firstDay.getDate() - firstDay.getDay()); // Go back to Sunday
+    
+    const weeks = [];
+    let currentWeek = [];
+    
+    // Fill the first partial week if needed
+    for (let i = 0; i < firstDay.getDay(); i++) {
+      currentWeek.push(null);
+    }
+    
+    days.forEach(day => {
+      if (currentWeek.length === 7) {
+        weeks.push(currentWeek);
+        currentWeek = [];
+      }
+      currentWeek.push(day);
+    });
+    
+    // Fill the last partial week if needed
+    while (currentWeek.length < 7) {
+      currentWeek.push(null);
+    }
+    weeks.push(currentWeek);
+    
+    return weeks;
+  }, [days]);
 
   // Selection logic
   const isSelected = (date) => {
@@ -149,27 +287,20 @@ const EarningsHeatmap = ({ earningsByDay, selectedDate, selectedRange, onSelectD
 
   const handleDayClick = (date) => {
     if (!selectedDate && !selectedRange) {
-      // No selection: select single date
       onSelectDate && onSelectDate(date);
     } else if (selectedDate && !selectedRange) {
-      // Single date selected: if same, clear; if different, select range
       if (date.toDateString() === selectedDate.toDateString()) {
         onSelectDate && onSelectDate(null);
       } else {
-        // Range: from selectedDate to clicked date
         const start = selectedDate < date ? selectedDate : date;
         const end = selectedDate > date ? selectedDate : date;
         onSelectRange && onSelectRange([start, end]);
       }
     } else if (selectedRange && selectedRange[0] && selectedRange[1]) {
-      // Range selected: reset to single date
       onSelectDate && onSelectDate(date);
       onSelectRange && onSelectRange(null);
     }
   };
-
-  // Only show Mon, Wed, Fri labels (GitHub style)
-  const weekdayLabelIndexes = [1, 3, 5];
 
   // Generate year options (last 5 years)
   const yearOptions = Array.from({ length: 5 }, (_, i) => currentYear - i);
@@ -177,77 +308,86 @@ const EarningsHeatmap = ({ earningsByDay, selectedDate, selectedRange, onSelectD
   return (
     <div className="heatmap-container">
       <div className="heatmap-header">
-        <h2 className="heatmap-title">Earnings Heatmap (Past Year)</h2>
-        <select
-          value={selectedYear}
-          onChange={e => setSelectedYear(Number(e.target.value))}
-          className="heatmap-year-selector"
-        >
-          {yearOptions.map(y => (
-            <option key={y} value={y}>{y}</option>
-          ))}
-        </select>
+        <div className="heatmap-stats">
+          <span className="heatmap-stat-number">{stats.totalGigs}</span>
+          <span className="heatmap-stat-text">gigs in the past one year</span>
+        </div>
+        <div className="heatmap-additional-stats">
+          <span className="heatmap-stat-item">Total active days: <strong>{stats.activeDays}</strong></span>
+          <span className="heatmap-stat-item">Max streak: <strong>{stats.maxStreak}</strong></span>
+          <span className="heatmap-stat-item">Current streak: <strong>{stats.currentStreak}</strong></span>
+        </div>
       </div>
-      <div className="heatmap-card">
-        <div className="heatmap-flex-container">
-          {/* Weekday labels */}
-          <div className="heatmap-week-labels">
-            {Array.from({ length: 7 }).map((_, i) => (
+      
+      <div className="heatmap-grid-container" style={{ gridTemplateColumns: gridTemplateColumns, paddingLeft: '8px' }}>
+        {/* Month labels */}
+        <div className="heatmap-months">
+          {monthMeta.filter(m => m.show).map(({ label, colStart, weeksCount, index }) => {
+            const baseCol = colStart; // dynamic start
+            return (
               <div
-                key={i}
-                className="heatmap-week-label"
-              >{weekdayLabelIndexes.includes(i) ? WEEKDAYS[i] : ''}</div>
-            ))}
-          </div>
-          <div className="heatmap-relative-container">
-            {/* Month labels absolutely positioned */}
-            {monthLabelPositions.map(({ label, left }, i) => (
-              left + 40 <= gridWidth ? (
-                <div
-                  key={i}
-                  className="heatmap-month-label"
-                  style={{ left }}
-                >
-                  {label}
-                </div>
-              ) : null
-            ))}
-            {/* Heatmap grid */}
-            <div className="heatmap-grid">
-              {weeks.map((week, wi) => (
-                <div key={wi} className="heatmap-week">
-                  {Array.from({ length: 7 }).map((_, di) => {
-                    const day = week[di];
-                    if (!day) return <div key={di} className="heatmap-block" />;
-                    const dateStr = formatDate(day);
-                    const { amount = 0, status = undefined } = earningsMap[dateStr] || {};
-                    const color = getColor(amount, thresholds, status);
-                    const selected = isSelected(day);
-                    return (
-                      <div
-                        key={di}
-                        title={`${dateStr}: $${amount.toFixed(2)}${status ? ' (' + status + ')' : ''}`}
-                        onClick={() => handleDayClick(day)}
-                        className={`heatmap-block${selected ? ' selected' : ''}`}
-                        style={{ background: color }}
-                      />
-                    );
-                  })}
-                </div>
-              ))}
+                key={index}
+                className="heatmap-month-label"
+                style={{ gridColumn: `${baseCol} / span ${weeksCount}`, gridRow: '1' }}
+              >
+                {label}
+              </div>
+            );
+          })}
+        </div>
+        
+        {/* Day labels */}
+        <div className="heatmap-days">
+          {['Mon', 'Wed', 'Fri'].map((day, index) => (
+            <div
+              key={day}
+              className="heatmap-day-label"
+              style={{
+                gridColumn: '1',
+                gridRow: `${[3, 5, 7][index]}`
+              }}
+            >
+              {day}
             </div>
-          </div>
-        </div>
-        {/* Legend */}
-        <div className="heatmap-legend">
-          <span>Less</span>
-          {COLORS.map((c, i) => (
-            <span key={i} className="heatmap-legend-block" style={{ background: c }} />
           ))}
-          <span>More</span>
-          <span className="heatmap-legend-block" style={{ background: PENDING_COLOR, marginLeft: 8 }} />
-          <span>Pending</span>
         </div>
+        
+        {/* Heatmap grid */}
+        <div className="heatmap-grid">
+          {days.map((day) => {
+            const monthKey = `${day.getFullYear()}-${String(day.getMonth()).padStart(2,'0')}`;
+            const meta = monthMeta[ monthIndexMap[monthKey] ];
+            const weekOfMonth = getWeekOfMonth(day);
+            const gridColumn = meta.colStart + weekOfMonth;
+            const gridRow = day.getDay() + 2;
+
+            const dateStr = formatDate(day);
+            const { amount = 0, status = undefined } = earningsMap[dateStr] || {};
+            const color = getColor(amount, thresholds, status);
+            const selected = isSelected(day);
+
+            return (
+              <div
+                key={dateStr}
+                title={`${dateStr}: $${amount.toFixed(2)}${status ? ' (' + status + ')' : ''}`}
+                onClick={() => handleDayClick(day)}
+                className={`heatmap-block${selected ? ' selected' : ''}`}
+                style={{ backgroundColor: color, gridColumn, gridRow }}
+              />
+            );
+          })}
+        </div>
+      </div>
+      
+      {/* Legend */}
+      <div className="heatmap-legend" style={{ marginTop: '8px', paddingLeft: '36px' }}>
+        <span>Less</span>
+        {COLORS.map((c, i) => (
+          <span key={i} className="heatmap-legend-block" style={{ backgroundColor: c }} />
+        ))}
+        <span>More</span>
+        <span className="heatmap-legend-block" style={{ backgroundColor: PENDING_COLOR, marginLeft: 8 }} />
+        <span>Pending</span>
       </div>
     </div>
   );
